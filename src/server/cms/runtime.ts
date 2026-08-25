@@ -16,6 +16,7 @@ export type GlossaCmsRuntime = ForgeCmsRuntime<GlossaCmsEnv>;
 const collections = [projectsCollection, catalogsCollection];
 
 let memoryRuntime: GlossaCmsRuntime | undefined;
+let memoryRuntimeReady: Promise<GlossaCmsRuntime> | undefined;
 
 export function createCmsRuntime(env: GlossaCmsEnv = {}): GlossaCmsRuntime {
   if (env?.DB) {
@@ -41,4 +42,22 @@ export function createCmsRuntime(env: GlossaCmsEnv = {}): GlossaCmsRuntime {
   }).init();
 
   return memoryRuntime;
+}
+
+export async function getCmsRuntime(
+  env: GlossaCmsEnv = {},
+): Promise<GlossaCmsRuntime> {
+  if (env.DB) {
+    const runtime = createCmsRuntime(env);
+    await runtime.syncSchema();
+    return runtime;
+  }
+
+  memoryRuntimeReady ??= (async () => {
+    const runtime = createCmsRuntime(env);
+    await runtime.syncSchema();
+    return runtime;
+  })();
+
+  return memoryRuntimeReady;
 }
