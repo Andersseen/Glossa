@@ -1,11 +1,6 @@
 import { defineCollection, defineField } from '@forge-cms/core';
 
-export type ProjectRecord = {
-  name: string;
-  slug: string;
-  sourceLocale: string;
-  locales: readonly string[];
-};
+import { validateProjectInput, type ProjectInput } from '../../domain/project';
 
 export const projectsCollection = defineCollection({
   slug: 'projects',
@@ -17,22 +12,6 @@ export const projectsCollection = defineCollection({
   },
 });
 
-export function validateProjectRecord(project: ProjectRecord): ProjectRecord {
-  if (!project.name.trim()) {
-    throw new Error('Project name is required.');
-  }
-
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(project.slug)) {
-    throw new Error('Project slug must be lowercase kebab-case.');
-  }
-
-  if (!project.sourceLocale.trim()) {
-    throw new Error('Source locale is required.');
-  }
-
-  if (!project.locales.includes(project.sourceLocale)) {
-    throw new Error('Locales must include the source locale.');
-  }
-
-  return project;
+export function validateProjectRecord(project: ProjectInput) {
+  return validateProjectInput(project);
 }

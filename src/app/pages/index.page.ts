@@ -4,6 +4,7 @@ import {
   computed,
   signal,
 } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { MOVEMENT_DIRECTIVES } from 'angular-movement';
 import { LmnLanguageIcon } from 'lumen-icons/language';
 
@@ -12,13 +13,12 @@ import {
   SUPPORTED_LOCALES,
   type Locale,
 } from '../i18n/catalogs';
-import { UiButton } from '../ui/button';
 import { UiCard, UiCardContent } from '../ui/card';
 
 @Component({
   selector: 'app-home',
   imports: [
-    UiButton,
+    RouterLink,
     UiCard,
     UiCardContent,
     LmnLanguageIcon,
@@ -40,15 +40,13 @@ import { UiCard, UiCardContent } from '../ui/card';
           </a>
 
           <div class="flex items-center gap-2">
-            <lmn-language
-              ariaLabel="Interface language"
-              class="text-muted-foreground"
-            />
+            <lmn-language aria-hidden="true" class="text-muted-foreground" />
             <label class="sr-only" for="locale">Interface language</label>
             <select
               id="locale"
               class="border-border bg-card text-foreground focus-visible:ring-ring rounded-md border px-3 py-2 text-sm shadow-sm transition outline-none focus-visible:ring-2"
               [value]="locale()"
+              (input)="setLocale($any($event.target).value)"
               (change)="setLocale($any($event.target).value)"
             >
               @for (option of locales; track option) {
@@ -70,7 +68,12 @@ import { UiCard, UiCardContent } from '../ui/card';
               Translation infrastructure for your projects.
             </p>
             <div class="mt-8">
-              <ui-button type="button">{{ t().nav.projects }}</ui-button>
+              <a
+                routerLink="/projects"
+                class="bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-ring inline-flex h-10 items-center justify-center rounded-md px-4 py-2 text-sm font-medium shadow-sm transition outline-none focus-visible:ring-2"
+              >
+                {{ t().nav.projects }}
+              </a>
             </div>
           </div>
 
