@@ -5,6 +5,9 @@
 /tmp
 /out-tsc
 /bazel-out
+.wrangler
+playwright-report
+test-results
 
 # Node
 /node_modules
@@ -45,3 +48,5 @@ Thumbs.db
 
 # Environment files
 .env*
+!.env.example
+.dev.vars

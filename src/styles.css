@@ -1,78 +1,79 @@
 @import 'tailwindcss';
 
-/* You can add global styles to this file, and also import other style files */
-:root {
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-text-size-adjust: 100%;
+@theme {
+  --color-background: hsl(42 33% 98%);
+  --color-foreground: hsl(215 28% 15%);
+  --color-muted: hsl(210 18% 94%);
+  --color-muted-foreground: hsl(214 10% 42%);
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(215 28% 15%);
+  --color-border: hsl(214 18% 85%);
+  --color-primary: hsl(168 76% 26%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-accent: hsl(31 88% 54%);
+  --color-destructive: hsl(354 76% 47%);
+  --color-ring: hsl(168 76% 26%);
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-.card {
-  padding: 2em;
-}
-
-@media (prefers-color-scheme: light) {
+@layer base {
   :root {
-    color: #213547;
-    background-color: #ffffff;
+    color-scheme: light;
+    font-family:
+      Inter,
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      'Segoe UI',
+      sans-serif;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
-  a:hover {
-    color: #747bff;
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --color-background: hsl(210 20% 8%);
+      --color-foreground: hsl(42 30% 96%);
+      --color-muted: hsl(210 15% 16%);
+      --color-muted-foreground: hsl(214 11% 68%);
+      --color-card: hsl(210 18% 11%);
+      --color-card-foreground: hsl(42 30% 96%);
+      --color-border: hsl(210 13% 23%);
+      --color-primary: hsl(168 68% 42%);
+      --color-primary-foreground: hsl(210 20% 8%);
+      --color-accent: hsl(31 88% 58%);
+      --color-destructive: hsl(354 76% 62%);
+      --color-ring: hsl(168 68% 42%);
+    }
   }
-  button {
-    background-color: #f9f9f9;
+
+  html {
+    min-width: 320px;
+    min-height: 100%;
+  }
+
+  body {
+    min-height: 100vh;
+    margin: 0;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
   }
 }
 
