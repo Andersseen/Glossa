@@ -1,0 +1,19 @@
+{
+  "packs": [
+    "technical",
+    "typescript",
+    "angular",
+    "efficiency",
+    "agentic",
+    "testing",
+    "accessibility",
+    "git",
+    "security"
+  ],
+  "enable": [
+    "playwright"
+  ],
+  "targets": [
+    "claude"
+  ]
+}

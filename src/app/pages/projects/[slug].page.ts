@@ -6,7 +6,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MOVEMENT_DIRECTIVES } from 'angular-movement';
 import { LmnDocumentTextIcon } from 'lumen-icons/document-text';
 import { firstValueFrom } from 'rxjs';
@@ -40,11 +40,16 @@ type Project = {
   locales: string[];
 };
 
+type Catalog = {
+  locale: string;
+};
+
 @Component({
   selector: 'app-project-detail',
   imports: [
     AppShell,
     PageHeader,
+    RouterLink,
     LmnDocumentTextIcon,
     UiBadge,
     UiBreadcrumbItem,
@@ -144,8 +149,14 @@ type Project = {
               <ui-separator class="my-4" />
               <div class="border-border overflow-hidden rounded-lg border">
                 @for (catalog of catalogRows(); track catalog.locale) {
-                  <div
-                    class="border-border grid gap-3 px-4 py-3 text-sm last:border-b-0 sm:grid-cols-[1fr_auto_auto] sm:items-center"
+                  <a
+                    [routerLink]="[
+                      '/projects',
+                      project.slug,
+                      'catalogs',
+                      catalog.locale,
+                    ]"
+                    class="border-border hover:bg-muted focus-visible:ring-ring grid gap-3 px-4 py-3 text-sm outline-none last:border-b-0 focus-visible:ring-2 focus-visible:ring-inset sm:grid-cols-[1fr_auto_auto] sm:items-center"
                     [class.border-b]="!$last"
                   >
                     <div class="flex min-w-0 items-center gap-3">
@@ -161,13 +172,14 @@ type Project = {
                         <ui-badge variant="outline">Source locale</ui-badge>
                       }
                     </div>
-                    <ui-badge variant="secondary">Not created</ui-badge>
-                  </div>
+                    @if (catalog.ready) {
+                      <ui-badge variant="solid">Ready</ui-badge>
+                    } @else {
+                      <ui-badge variant="secondary">Not created</ui-badge>
+                    }
+                  </a>
                 }
               </div>
-              <p class="text-muted-foreground mt-3 text-sm">
-                Catalog management is the next feature.
-              </p>
             </section>
           </ui-tabs-content>
 
@@ -192,6 +204,7 @@ export default class ProjectDetailPage {
   private readonly route = inject(ActivatedRoute);
 
   protected readonly project = signal<Project | null>(null);
+  protected readonly catalogs = signal<Catalog[]>([]);
   protected readonly loading = signal(true);
   protected readonly error = signal('');
   protected readonly catalogRows = computed(() => {
@@ -201,10 +214,15 @@ export default class ProjectDetailPage {
       return [];
     }
 
+    const readyLocales = new Set(
+      this.catalogs().map((catalog) => catalog.locale),
+    );
+
     return project.locales.map((locale) => ({
       locale,
       fileName: `${locale}.json`,
       source: locale === project.sourceLocale,
+      ready: readyLocales.has(locale),
     }));
   });
 
@@ -222,12 +240,20 @@ export default class ProjectDetailPage {
     }
 
     try {
-      const response = await firstValueFrom(
-        this.http.get<{ project: Project }>(
-          `/api/projects/${encodeURIComponent(slug)}`,
+      const [projectResponse, catalogsResponse] = await Promise.all([
+        firstValueFrom(
+          this.http.get<{ project: Project }>(
+            `/api/projects/${encodeURIComponent(slug)}`,
+          ),
         ),
-      );
-      this.project.set(response.project);
+        firstValueFrom(
+          this.http.get<{ catalogs: Catalog[] }>(
+            `/api/projects/${encodeURIComponent(slug)}/catalogs`,
+          ),
+        ),
+      ]);
+      this.project.set(projectResponse.project);
+      this.catalogs.set(catalogsResponse.catalogs);
     } catch {
       this.error.set('Project could not be loaded.');
     } finally {
