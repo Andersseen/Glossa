@@ -4,3 +4,10 @@ node_modules
 playwright-report
 test-results
 .wrangler
+
+
+# Written and content-hashed by the Agentyx CLI (.agentyx.lock.json); reformatting
+# would drift from what it tracks as installed.
+.agentyx.json
+.agentyx.lock.json
+.mcp.json
