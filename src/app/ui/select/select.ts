@@ -1,0 +1,150 @@
+import {
+  booleanAttribute,
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  forwardRef,
+  input,
+  model,
+  signal,
+} from '@angular/core';
+import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
+import type { Placement } from '@floating-ui/dom';
+import {
+  NgpSelect,
+  NgpSelectPortal,
+  provideSelectState,
+} from 'ng-primitives/select';
+import type { NgpFlipInput } from 'ng-primitives/portal';
+import { injectFormControlState } from '../form-control-state';
+
+@Component({
+  selector: 'ui-select',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    class: 'block w-full',
+  },
+  imports: [NgpSelect, NgpSelectPortal],
+  providers: [
+    provideSelectState(),
+    {
+      provide: NG_VALUE_ACCESSOR,
+      useExisting: forwardRef(() => UiSelect),
+      multi: true,
+    },
+  ],
+  template: `
+    <button
+      ngpSelect
+      type="button"
+      [ngpSelectDropdownPlacement]="dropdownPlacement()"
+      [ngpSelectValue]="value()"
+      [ngpSelectDisabled]="isDisabled()"
+      [ngpSelectMultiple]="multiple()"
+      [ngpSelectCompareWith]="compareWith()"
+      [ngpSelectDropdownContainer]="container()"
+      [ngpSelectDropdownFlip]="flip()"
+      [ngpSelectScrollToOption]="scrollToOption()"
+      [ngpSelectOptions]="allOptions()"
+      [attr.aria-label]="ariaLabel() || null"
+      [attr.aria-invalid]="formControlState.invalid() ? 'true' : null"
+      (ngpSelectValueChange)="onValueChange($event)"
+      (blur)="onTouched()"
+      class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus:ring-ring flex h-10 w-full cursor-pointer items-center justify-between rounded-md border px-3 py-2 text-sm focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1"
+    >
+      <span class="pointer-events-none block flex-1 truncate text-left">
+        @if (value(); as selected) {
+          {{ displayValue(selected) }}
+        } @else {
+          <span class="text-muted-foreground">{{ placeholder() }}</span>
+        }
+      </span>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="pointer-events-none h-4 w-4 shrink-0 opacity-50"
+      >
+        <path d="m6 9 6 6 6-6" />
+      </svg>
+    </button>
+
+    <ng-template ngpSelectPortal>
+      <ng-content />
+    </ng-template>
+  `,
+})
+export class UiSelect implements ControlValueAccessor {
+  protected readonly formControlState = injectFormControlState();
+
+  readonly placeholder = input('Select an option');
+  readonly ariaLabel = input('');
+  readonly value = model<unknown>(undefined);
+  readonly disabled = input<boolean, unknown>(false, {
+    transform: booleanAttribute,
+  });
+  readonly multiple = input<boolean, unknown>(false, {
+    transform: booleanAttribute,
+  });
+  readonly compareWith = input<(a: unknown, b: unknown) => boolean>(Object.is);
+  readonly dropdownPlacement = input<Placement>('bottom-start');
+  readonly container = input<string | HTMLElement | null>('body');
+  readonly flip = input<NgpFlipInput, NgpFlipInput>(true, {
+    transform: (value: NgpFlipInput) => {
+      if (typeof value === 'string') {
+        return value === 'true';
+      }
+      return value;
+    },
+  });
+  readonly scrollToOption = input<((index: number) => void) | undefined>(
+    undefined,
+  );
+  readonly allOptions = input<unknown[] | undefined>(undefined);
+  readonly displayWith = input<(value: unknown) => string>((value) =>
+    String(value),
+  );
+
+  private readonly controlDisabled = signal(false);
+  protected readonly isDisabled = computed(
+    () => this.disabled() || this.controlDisabled(),
+  );
+
+  private onChange: (value: unknown) => void = () => {};
+  protected onTouched: () => void = () => {};
+
+  protected onValueChange(value: unknown): void {
+    this.value.set(value);
+    this.onChange(value);
+  }
+
+  protected displayValue(value: unknown): string {
+    if (Array.isArray(value)) {
+      return value.map((item) => this.displayWith()(item)).join(', ');
+    }
+
+    return this.displayWith()(value);
+  }
+
+  writeValue(value: unknown): void {
+    this.value.set(value);
+  }
+
+  registerOnChange(fn: (value: unknown) => void): void {
+    this.onChange = fn;
+  }
+
+  registerOnTouched(fn: () => void): void {
+    this.onTouched = fn;
+  }
+
+  setDisabledState(isDisabled: boolean): void {
+    this.controlDisabled.set(isDisabled);
+  }
+}
