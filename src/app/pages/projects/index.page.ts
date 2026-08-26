@@ -11,6 +11,11 @@ import { LmnFolderIcon } from 'lumen-icons/folder';
 import { LmnPlusIcon } from 'lumen-icons/plus';
 import { firstValueFrom } from 'rxjs';
 
+import { AppShell } from '../../layout/app-shell';
+import { EmptyState } from '../../layout/empty-state';
+import { PageHeader } from '../../layout/page-header';
+import { UiBadge } from '../../ui/badge';
+import { buttonVariants } from '../../ui/button/variants';
 import {
   UiCard,
   UiCardContent,
@@ -18,6 +23,7 @@ import {
   UiCardHeader,
   UiCardTitle,
 } from '../../ui/card';
+import { UiSkeleton } from '../../ui/skeleton';
 
 type Project = {
   id: string;
@@ -30,7 +36,11 @@ type Project = {
 @Component({
   selector: 'app-projects-index',
   imports: [
+    AppShell,
+    EmptyState,
+    PageHeader,
     RouterLink,
+    UiBadge,
     LmnFolderIcon,
     LmnPlusIcon,
     UiCard,
@@ -38,94 +48,106 @@ type Project = {
     UiCardDescription,
     UiCardHeader,
     UiCardTitle,
+    UiSkeleton,
     ...MOVEMENT_DIRECTIVES,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <main class="bg-background text-foreground min-h-screen">
-      <section class="mx-auto w-full max-w-5xl px-6 py-8 sm:px-8 lg:px-10">
-        <header
-          class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between"
-        >
-          <div>
-            <a class="text-muted-foreground text-sm font-medium" routerLink="/">
-              Glossa
-            </a>
-            <h1 class="mt-5 text-3xl font-semibold tracking-normal">
-              Projects
-            </h1>
-            <p class="text-muted-foreground mt-3 max-w-2xl text-base leading-7">
-              Manage the translation projects Glossa will serve through
-              ForgeCMS.
-            </p>
-          </div>
+    <app-shell>
+      <app-page-header
+        title="Projects"
+        description="Manage translation catalogs across your applications."
+      >
+        <a routerLink="/projects/new" [class]="newProjectClass">
+          <lmn-plus aria-hidden="true" [size]="16" />
+          New project
+        </a>
+      </app-page-header>
 
-          <a
-            routerLink="/projects/new"
-            class="bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-ring inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium shadow-sm transition outline-none focus-visible:ring-2"
-          >
-            <lmn-plus aria-hidden="true" [size]="16" />
-            New project
-          </a>
-        </header>
-
-        <div class="mt-10" [move]="'fade-up'">
-          @if (loading()) {
-            <p class="text-muted-foreground text-sm">Loading projects...</p>
-          } @else if (error()) {
-            <p class="text-destructive text-sm">{{ error() }}</p>
-          } @else if (projects().length === 0) {
+      <div class="mt-10" [move]="'fade-up'">
+        @if (loading()) {
+          <div class="grid gap-4 sm:grid-cols-2" aria-label="Loading projects">
             <ui-card>
-              <ui-card-content class="grid justify-items-start gap-4 pt-6">
-                <lmn-folder class="text-muted-foreground" aria-hidden="true" />
-                <div>
-                  <h2 class="text-base font-semibold">No projects yet</h2>
-                  <p class="text-muted-foreground mt-2 text-sm leading-6">
-                    Create the first managed project to start defining locales.
-                  </p>
-                </div>
-                <a
-                  routerLink="/projects/new"
-                  class="border-border bg-card hover:bg-muted focus-visible:ring-ring inline-flex h-10 items-center justify-center rounded-md border px-4 text-sm font-medium transition outline-none focus-visible:ring-2"
-                >
-                  New project
-                </a>
+              <ui-card-header>
+                <ui-skeleton height="1.25rem" width="45%" />
+                <ui-skeleton height="1rem" width="35%" />
+              </ui-card-header>
+              <ui-card-content class="grid gap-3">
+                <ui-skeleton height="1rem" width="60%" />
+                <ui-skeleton height="1.5rem" width="75%" />
               </ui-card-content>
             </ui-card>
-          } @else {
-            <div class="grid gap-4 sm:grid-cols-2">
-              @for (project of projects(); track project.id) {
-                <a [routerLink]="['/projects', project.slug]">
-                  <ui-card
-                    class="hover:border-primary/60 h-full transition hover:shadow-md"
-                  >
-                    <ui-card-header>
-                      <ui-card-title>{{ project.name }}</ui-card-title>
-                      <ui-card-description>
-                        Source: {{ project.sourceLocale }}
-                      </ui-card-description>
-                    </ui-card-header>
-                    <ui-card-content>
-                      <p class="text-muted-foreground text-sm">
-                        Locales:
-                        <span class="text-foreground">
-                          {{ project.locales.join(' · ') }}
-                        </span>
-                      </p>
-                    </ui-card-content>
-                  </ui-card>
-                </a>
-              }
-            </div>
-          }
-        </div>
-      </section>
-    </main>
+            <ui-card class="hidden sm:block">
+              <ui-card-header>
+                <ui-skeleton height="1.25rem" width="50%" />
+                <ui-skeleton height="1rem" width="40%" />
+              </ui-card-header>
+              <ui-card-content class="grid gap-3">
+                <ui-skeleton height="1rem" width="55%" />
+                <ui-skeleton height="1.5rem" width="70%" />
+              </ui-card-content>
+            </ui-card>
+          </div>
+        } @else if (error()) {
+          <p class="text-destructive text-sm">{{ error() }}</p>
+        } @else if (projects().length === 0) {
+          <app-empty-state
+            title="No projects yet"
+            description="Create the first managed project to start defining locales."
+          >
+            <lmn-folder
+              slot="icon"
+              class="text-muted-foreground"
+              aria-hidden="true"
+            />
+            <a routerLink="/projects/new" [class]="emptyActionClass">
+              New project
+            </a>
+          </app-empty-state>
+        } @else {
+          <div class="grid gap-4 sm:grid-cols-2">
+            @for (project of projects(); track project.id) {
+              <a
+                [routerLink]="['/projects', project.slug]"
+                class="focus-visible:ring-ring rounded-lg outline-none focus-visible:ring-2"
+              >
+                <ui-card
+                  class="hover:border-primary/60 h-full rounded-lg transition hover:shadow-md"
+                >
+                  <ui-card-header>
+                    <ui-card-title>{{ project.name }}</ui-card-title>
+                    <ui-card-description>
+                      {{ project.slug }}
+                    </ui-card-description>
+                  </ui-card-header>
+                  <ui-card-content class="grid gap-4">
+                    <dl
+                      class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm"
+                    >
+                      <dt class="text-muted-foreground">Source</dt>
+                      <dd class="font-medium">{{ project.sourceLocale }}</dd>
+                      <dt class="text-muted-foreground">Locales</dt>
+                      <dd class="flex flex-wrap gap-1.5">
+                        @for (locale of project.locales; track locale) {
+                          <ui-badge variant="secondary">{{ locale }}</ui-badge>
+                        }
+                      </dd>
+                    </dl>
+                  </ui-card-content>
+                </ui-card>
+              </a>
+            }
+          </div>
+        }
+      </div>
+    </app-shell>
   `,
 })
 export default class ProjectsIndexPage {
   private readonly http = inject(HttpClient);
 
+  protected readonly newProjectClass = buttonVariants({ variant: 'solid' });
+  protected readonly emptyActionClass = buttonVariants({ variant: 'outline' });
   protected readonly projects = signal<Project[]>([]);
   protected readonly loading = signal(true);
   protected readonly error = signal('');

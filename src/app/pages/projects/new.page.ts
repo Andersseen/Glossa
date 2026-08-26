@@ -13,7 +13,14 @@ import { LmnPlusIcon } from 'lumen-icons/plus';
 import { LmnTrashIcon } from 'lumen-icons/trash';
 import { firstValueFrom } from 'rxjs';
 
+import { AppShell } from '../../layout/app-shell';
+import { PageHeader } from '../../layout/page-header';
+import { UiBadge } from '../../ui/badge';
 import { UiButton } from '../../ui/button';
+import { buttonVariants } from '../../ui/button/variants';
+import { UiError, UiFormField, UiHint, UiLabel } from '../../ui/form-field';
+import { UiInput } from '../../ui/input';
+import { UiNativeSelect } from '../../ui/select';
 
 type Project = {
   id: string;
@@ -26,8 +33,17 @@ type Project = {
 @Component({
   selector: 'app-project-new',
   imports: [
+    AppShell,
+    PageHeader,
     RouterLink,
+    UiBadge,
     UiButton,
+    UiError,
+    UiFormField,
+    UiHint,
+    UiInput,
+    UiLabel,
+    UiNativeSelect,
     LmnArrowLeftIcon,
     LmnPlusIcon,
     LmnTrashIcon,
@@ -35,148 +51,168 @@ type Project = {
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <main class="bg-background text-foreground min-h-screen">
-      <section class="mx-auto w-full max-w-3xl px-6 py-8 sm:px-8 lg:px-10">
-        <a
-          routerLink="/projects"
-          class="text-muted-foreground hover:text-foreground inline-flex items-center gap-2 text-sm font-medium transition"
-        >
-          <lmn-arrow-left aria-hidden="true" [size]="16" />
-          Projects
-        </a>
+    <app-shell>
+      <a routerLink="/projects" [class]="backLinkClass">
+        <lmn-arrow-left aria-hidden="true" [size]="16" />
+        Projects
+      </a>
 
-        <header class="mt-8" [move]="'fade-up'">
-          <h1 class="text-3xl font-semibold tracking-normal">New project</h1>
-          <p class="text-muted-foreground mt-3 max-w-2xl text-base leading-7">
-            Define the project identity and the locales it can manage.
-          </p>
-        </header>
+      <app-page-header
+        class="mt-8"
+        title="New project"
+        description="Define the project identity and the locales it can manage."
+        [move]="'fade-up'"
+      />
 
-        <form
-          class="mt-10 grid gap-6"
-          [move]="'fade-up'"
-          (submit)="submit($event)"
-        >
-          <div class="grid gap-2">
-            <label class="text-sm font-medium" for="name">Name</label>
-            <input
-              id="name"
-              class="border-border bg-card focus-visible:ring-ring h-10 rounded-md border px-3 text-sm outline-none focus-visible:ring-2"
-              [value]="name()"
-              (input)="setName($any($event.target).value)"
-              autocomplete="off"
-            />
-            @if (submitted() && !name().trim()) {
-              <p class="text-destructive text-sm">Project name is required.</p>
-            }
-          </div>
-
-          <div class="grid gap-2">
-            <label class="text-sm font-medium" for="slug">Slug</label>
-            <input
-              id="slug"
-              class="border-border bg-card focus-visible:ring-ring h-10 rounded-md border px-3 text-sm outline-none focus-visible:ring-2"
-              [value]="slug()"
-              (input)="setSlug($any($event.target).value)"
-              autocomplete="off"
-            />
-            @if (submitted() && !validSlug()) {
-              <p class="text-destructive text-sm">
-                Use lowercase kebab-case, for example volt-ui.
-              </p>
-            }
-          </div>
-
-          <div class="grid gap-2">
-            <label class="text-sm font-medium" for="sourceLocale">
-              Source locale
-            </label>
-            <select
-              id="sourceLocale"
-              class="border-border bg-card focus-visible:ring-ring h-10 rounded-md border px-3 text-sm outline-none focus-visible:ring-2"
-              [value]="sourceLocale()"
-              (change)="sourceLocale.set($any($event.target).value)"
-            >
-              @for (locale of locales(); track locale) {
-                <option [value]="locale">{{ locale }}</option>
-              }
-            </select>
-            @if (submitted() && !sourceLocaleValid()) {
-              <p class="text-destructive text-sm">
-                Source locale must be one of the selected locales.
-              </p>
-            }
-          </div>
-
-          <fieldset class="grid gap-3">
-            <legend class="text-sm font-medium">Locales</legend>
-            <div class="flex flex-wrap gap-2">
-              @for (locale of locales(); track locale) {
-                <span
-                  class="border-border bg-card inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm"
-                >
-                  {{ locale }}
-                  <button
-                    type="button"
-                    class="text-muted-foreground hover:text-destructive focus-visible:ring-ring inline-flex size-6 items-center justify-center rounded-md outline-none focus-visible:ring-2"
-                    [attr.aria-label]="'Remove ' + locale"
-                    (click)="removeLocale(locale)"
-                  >
-                    <lmn-trash aria-hidden="true" [size]="14" />
-                  </button>
-                </span>
-              }
-            </div>
-
-            <div class="flex flex-col gap-2 sm:flex-row">
-              <input
-                class="border-border bg-card focus-visible:ring-ring h-10 min-w-0 rounded-md border px-3 text-sm outline-none focus-visible:ring-2 sm:flex-1"
-                [value]="newLocale()"
-                (input)="newLocale.set($any($event.target).value)"
-                placeholder="pt-BR"
-                aria-label="New locale"
-                autocomplete="off"
-              />
-              <ui-button
-                type="button"
-                variant="outline"
-                class="gap-2"
-                (click)="addLocale()"
-              >
-                <lmn-plus slot="leading" aria-hidden="true" [size]="16" />
-                Add locale
-              </ui-button>
-            </div>
-
-            @if (localeError()) {
-              <p class="text-destructive text-sm">{{ localeError() }}</p>
-            }
-          </fieldset>
-
-          @if (serverError()) {
-            <p class="text-destructive text-sm">{{ serverError() }}</p>
+      <form
+        class="mt-10 grid max-w-3xl gap-6"
+        [move]="'fade-up'"
+        (submit)="submit($event)"
+        novalidate
+      >
+        <ui-form-field>
+          <ui-label htmlFor="name" [error]="submitted() && !name().trim()">
+            Name
+          </ui-label>
+          <ui-input
+            id="name"
+            [value]="name()"
+            (valueChange)="setName($event)"
+            autocomplete="off"
+            required
+            [ariaDescribedBy]="
+              submitted() && !name().trim() ? 'name-error' : ''
+            "
+          />
+          @if (submitted() && !name().trim()) {
+            <ui-error id="name-error">Project name is required.</ui-error>
           }
+        </ui-form-field>
 
-          <div class="flex justify-end gap-3">
-            <a
-              routerLink="/projects"
-              class="border-border bg-card hover:bg-muted focus-visible:ring-ring inline-flex h-10 items-center justify-center rounded-md border px-4 text-sm font-medium transition outline-none focus-visible:ring-2"
+        <ui-form-field>
+          <ui-label htmlFor="slug" [error]="submitted() && !validSlug()">
+            Slug
+          </ui-label>
+          <ui-input
+            id="slug"
+            [value]="slug()"
+            (valueChange)="setSlug($event)"
+            autocomplete="off"
+            required
+            [ariaDescribedBy]="
+              submitted() && !validSlug() ? 'slug-error' : 'slug-hint'
+            "
+          />
+          <ui-hint id="slug-hint">Use lowercase kebab-case.</ui-hint>
+          @if (submitted() && !validSlug()) {
+            <ui-error id="slug-error">
+              Use lowercase kebab-case, for example volt-ui.
+            </ui-error>
+          }
+        </ui-form-field>
+
+        <ui-form-field>
+          <ui-label
+            htmlFor="sourceLocale"
+            [error]="submitted() && !sourceLocaleValid()"
+          >
+            Source locale
+          </ui-label>
+          <select
+            id="sourceLocale"
+            uiNativeSelect
+            [value]="sourceLocale()"
+            (change)="sourceLocale.set($any($event.target).value)"
+            [attr.aria-describedby]="
+              submitted() && !sourceLocaleValid() ? 'source-locale-error' : null
+            "
+          >
+            @for (locale of locales(); track locale) {
+              <option [value]="locale">{{ locale }}</option>
+            }
+          </select>
+          @if (submitted() && !sourceLocaleValid()) {
+            <ui-error id="source-locale-error">
+              Source locale must be one of the selected locales.
+            </ui-error>
+          }
+        </ui-form-field>
+
+        <fieldset
+          class="grid gap-3"
+          aria-describedby="locales-hint locale-error"
+        >
+          <legend class="text-sm font-medium">Locales</legend>
+          <p id="locales-hint" class="text-muted-foreground text-sm">
+            Add every locale this project will eventually manage.
+          </p>
+          <div class="flex flex-wrap gap-2">
+            @for (locale of locales(); track locale) {
+              <ui-badge variant="outline" class="gap-2 py-1 pr-1">
+                {{ locale }}
+                <button
+                  type="button"
+                  class="text-muted-foreground hover:text-destructive focus-visible:ring-ring inline-flex size-6 items-center justify-center rounded-full outline-none focus-visible:ring-2"
+                  [attr.aria-label]="'Remove ' + locale"
+                  (click)="removeLocale(locale)"
+                >
+                  <lmn-trash aria-hidden="true" [size]="14" />
+                </button>
+              </ui-badge>
+            }
+          </div>
+
+          <div class="flex flex-col gap-2 sm:flex-row">
+            <ui-input
+              class="min-w-0 sm:flex-1"
+              [value]="newLocale()"
+              (valueChange)="newLocale.set($event)"
+              placeholder="pt-BR"
+              ariaLabel="New locale"
+              autocomplete="off"
+            />
+            <ui-button
+              type="button"
+              variant="outline"
+              class="gap-2"
+              (click)="addLocale()"
             >
-              Cancel
-            </a>
-            <ui-button type="submit" [disabled]="submitting()">
-              {{ submitting() ? 'Creating...' : 'Create project' }}
+              <lmn-plus slot="leading" aria-hidden="true" [size]="16" />
+              Add locale
             </ui-button>
           </div>
-        </form>
-      </section>
-    </main>
+
+          @if (localeError()) {
+            <ui-error id="locale-error">{{ localeError() }}</ui-error>
+          }
+        </fieldset>
+
+        @if (serverError()) {
+          <ui-error>{{ serverError() }}</ui-error>
+        }
+
+        <div class="flex justify-end gap-3">
+          <a routerLink="/projects" [class]="cancelLinkClass"> Cancel </a>
+          <ui-button type="submit" [disabled]="submitting()">
+            {{ submitting() ? 'Creating...' : 'Create project' }}
+          </ui-button>
+        </div>
+      </form>
+    </app-shell>
   `,
 })
 export default class ProjectNewPage {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
 
+  protected readonly backLinkClass = buttonVariants({
+    variant: 'ghost',
+    size: 'sm',
+  });
+  protected readonly cancelLinkClass = buttonVariants({
+    variant: 'outline',
+    size: 'md',
+  });
   protected readonly name = signal('');
   protected readonly slug = signal('');
   protected readonly sourceLocale = signal('en');

@@ -2,21 +2,35 @@ import { HttpClient } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   inject,
   signal,
 } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import { MOVEMENT_DIRECTIVES } from 'angular-movement';
-import { LmnArrowLeftIcon } from 'lumen-icons/arrow-left';
+import { LmnDocumentTextIcon } from 'lumen-icons/document-text';
 import { firstValueFrom } from 'rxjs';
 
+import { AppShell } from '../../layout/app-shell';
+import { PageHeader } from '../../layout/page-header';
+import { UiBadge } from '../../ui/badge';
 import {
-  UiCard,
-  UiCardContent,
-  UiCardDescription,
-  UiCardHeader,
-  UiCardTitle,
-} from '../../ui/card';
+  UiBreadcrumbItem,
+  UiBreadcrumbLink,
+  UiBreadcrumbList,
+  UiBreadcrumbPage,
+  UiBreadcrumbSeparator,
+  UiBreadcrumbs,
+} from '../../ui/breadcrumbs';
+import { UiCard, UiCardContent } from '../../ui/card';
+import { UiSeparator } from '../../ui/separator';
+import {
+  UiTabs,
+  UiTabsContent,
+  UiTabsList,
+  UiTabsTrigger,
+} from '../../ui/tabs';
+import { UiSkeleton } from '../../ui/skeleton';
 
 type Project = {
   id: string;
@@ -29,82 +43,148 @@ type Project = {
 @Component({
   selector: 'app-project-detail',
   imports: [
-    RouterLink,
-    LmnArrowLeftIcon,
+    AppShell,
+    PageHeader,
+    LmnDocumentTextIcon,
+    UiBadge,
+    UiBreadcrumbItem,
+    UiBreadcrumbLink,
+    UiBreadcrumbList,
+    UiBreadcrumbPage,
+    UiBreadcrumbSeparator,
+    UiBreadcrumbs,
     UiCard,
     UiCardContent,
-    UiCardDescription,
-    UiCardHeader,
-    UiCardTitle,
+    UiSeparator,
+    UiSkeleton,
+    UiTabs,
+    UiTabsContent,
+    UiTabsList,
+    UiTabsTrigger,
     ...MOVEMENT_DIRECTIVES,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <main class="bg-background text-foreground min-h-screen">
-      <section class="mx-auto w-full max-w-4xl px-6 py-8 sm:px-8 lg:px-10">
-        <a
-          routerLink="/projects"
-          class="text-muted-foreground hover:text-foreground inline-flex items-center gap-2 text-sm font-medium transition"
+    <app-shell>
+      @if (loading()) {
+        <div class="grid max-w-4xl gap-8" aria-label="Loading project">
+          <ui-skeleton width="14rem" height="1rem" />
+          <div class="grid gap-3">
+            <ui-skeleton width="9rem" height="1rem" />
+            <ui-skeleton width="18rem" height="2rem" />
+          </div>
+          <ui-card>
+            <ui-card-content class="grid gap-5 pt-6">
+              <ui-skeleton width="11rem" height="1.25rem" />
+              <ui-skeleton width="100%" height="1px" />
+              <ui-skeleton width="60%" height="1.25rem" />
+              <ui-skeleton width="75%" height="1.25rem" />
+            </ui-card-content>
+          </ui-card>
+        </div>
+      } @else if (error()) {
+        <p class="text-destructive mt-10 text-sm">{{ error() }}</p>
+      } @else if (project(); as project) {
+        <ui-breadcrumbs>
+          <ui-breadcrumb-list>
+            <ui-breadcrumb-item>
+              <ui-breadcrumb-link href="/projects">Projects</ui-breadcrumb-link>
+            </ui-breadcrumb-item>
+            <ui-breadcrumb-separator />
+            <ui-breadcrumb-item>
+              <ui-breadcrumb-page>{{ project.name }}</ui-breadcrumb-page>
+            </ui-breadcrumb-item>
+          </ui-breadcrumb-list>
+        </ui-breadcrumbs>
+
+        <app-page-header
+          class="mt-8"
+          [title]="project.name"
+          description="Project workspace for locale configuration and catalogs."
+          [move]="'fade-up'"
         >
-          <lmn-arrow-left aria-hidden="true" [size]="16" />
-          Projects
-        </a>
+          <p slot="meta" class="text-muted-foreground mt-2 text-sm">
+            {{ project.slug }}
+          </p>
+        </app-page-header>
 
-        @if (loading()) {
-          <p class="text-muted-foreground mt-10 text-sm">Loading project...</p>
-        } @else if (error()) {
-          <p class="text-destructive mt-10 text-sm">{{ error() }}</p>
-        } @else if (project(); as project) {
-          <header class="mt-8" [move]="'fade-up'">
-            <p class="text-muted-foreground text-sm">{{ project.slug }}</p>
-            <h1 class="mt-2 text-3xl font-semibold tracking-normal">
-              {{ project.name }}
-            </h1>
-          </header>
+        <ui-tabs class="mt-10 block" value="overview">
+          <ui-tabs-list aria-label="Project sections">
+            <ui-tabs-trigger value="overview">Overview</ui-tabs-trigger>
+            <ui-tabs-trigger value="translations" disabled>
+              Translations
+            </ui-tabs-trigger>
+            <ui-tabs-trigger value="api" disabled>API</ui-tabs-trigger>
+          </ui-tabs-list>
 
-          <div class="mt-10 grid gap-6">
-            <ui-card [move]="'fade-up'">
-              <ui-card-header>
-                <ui-card-title>{{ project.name }}</ui-card-title>
-                <ui-card-description
-                  >Project locale settings</ui-card-description
-                >
-              </ui-card-header>
-              <ui-card-content>
-                <dl class="grid gap-6 sm:grid-cols-2">
-                  <div>
-                    <dt class="text-muted-foreground text-sm">Source locale</dt>
-                    <dd class="mt-2 text-lg font-semibold">
-                      {{ project.sourceLocale }}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt class="text-muted-foreground text-sm">Locales</dt>
-                    <dd class="mt-2 flex flex-wrap gap-2">
-                      @for (locale of project.locales; track locale) {
-                        <span
-                          class="border-border bg-muted inline-flex rounded-md border px-2.5 py-1 text-sm font-medium"
-                        >
-                          {{ locale }}
-                        </span>
-                      }
-                    </dd>
-                  </div>
-                </dl>
-              </ui-card-content>
-            </ui-card>
+          <ui-tabs-content value="overview" class="mt-8">
+            <section [move]="'fade-up'">
+              <h2 class="text-xl font-semibold">Overview</h2>
+              <ui-separator class="my-4" />
+              <dl class="grid gap-6 sm:grid-cols-2">
+                <div>
+                  <dt class="text-muted-foreground text-sm">Source locale</dt>
+                  <dd class="mt-2 text-lg font-semibold">
+                    {{ project.sourceLocale }}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-muted-foreground text-sm">Locales</dt>
+                  <dd class="mt-2 flex flex-wrap gap-2">
+                    @for (locale of project.locales; track locale) {
+                      <ui-badge variant="secondary">{{ locale }}</ui-badge>
+                    }
+                  </dd>
+                </div>
+              </dl>
+            </section>
 
-            <section>
+            <section class="mt-10" [move]="'fade-up'">
               <h2 class="text-xl font-semibold">Catalogs</h2>
-              <p class="text-muted-foreground mt-3 text-sm">No catalogs yet.</p>
-              <p class="text-muted-foreground mt-1 text-sm">
-                Catalog management will be implemented next.
+              <ui-separator class="my-4" />
+              <div class="border-border overflow-hidden rounded-lg border">
+                @for (catalog of catalogRows(); track catalog.locale) {
+                  <div
+                    class="border-border grid gap-3 px-4 py-3 text-sm last:border-b-0 sm:grid-cols-[1fr_auto_auto] sm:items-center"
+                    [class.border-b]="!$last"
+                  >
+                    <div class="flex min-w-0 items-center gap-3">
+                      <lmn-document-text
+                        class="text-muted-foreground shrink-0"
+                        aria-hidden="true"
+                        [size]="20"
+                      />
+                      <span class="font-medium">{{ catalog.fileName }}</span>
+                    </div>
+                    <div>
+                      @if (catalog.source) {
+                        <ui-badge variant="outline">Source locale</ui-badge>
+                      }
+                    </div>
+                    <ui-badge variant="secondary">Not created</ui-badge>
+                  </div>
+                }
+              </div>
+              <p class="text-muted-foreground mt-3 text-sm">
+                Catalog management is the next feature.
               </p>
             </section>
-          </div>
-        }
-      </section>
-    </main>
+          </ui-tabs-content>
+
+          <ui-tabs-content value="translations">
+            <p class="text-muted-foreground text-sm">
+              Translation workflows are planned for a later branch.
+            </p>
+          </ui-tabs-content>
+
+          <ui-tabs-content value="api">
+            <p class="text-muted-foreground text-sm">
+              API access will be designed after catalogs exist.
+            </p>
+          </ui-tabs-content>
+        </ui-tabs>
+      }
+    </app-shell>
   `,
 })
 export default class ProjectDetailPage {
@@ -114,6 +194,19 @@ export default class ProjectDetailPage {
   protected readonly project = signal<Project | null>(null);
   protected readonly loading = signal(true);
   protected readonly error = signal('');
+  protected readonly catalogRows = computed(() => {
+    const project = this.project();
+
+    if (!project) {
+      return [];
+    }
+
+    return project.locales.map((locale) => ({
+      locale,
+      fileName: `${locale}.json`,
+      source: locale === project.sourceLocale,
+    }));
+  });
 
   constructor() {
     void this.loadProject();

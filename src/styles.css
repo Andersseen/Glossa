@@ -7,11 +7,16 @@
   --color-muted-foreground: hsl(214 10% 42%);
   --color-card: hsl(0 0% 100%);
   --color-card-foreground: hsl(215 28% 15%);
+  --color-surface: hsl(0 0% 100%);
+  --color-surface-foreground: hsl(215 28% 15%);
   --color-border: hsl(214 18% 85%);
+  --color-input: hsl(214 18% 80%);
   --color-primary: hsl(168 76% 26%);
   --color-primary-foreground: hsl(0 0% 100%);
   --color-accent: hsl(31 88% 54%);
   --color-destructive: hsl(354 76% 47%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+  --color-error: hsl(354 76% 47%);
   --color-ring: hsl(168 76% 26%);
 }
 
@@ -41,11 +46,16 @@
       --color-muted-foreground: hsl(214 11% 68%);
       --color-card: hsl(210 18% 11%);
       --color-card-foreground: hsl(42 30% 96%);
+      --color-surface: hsl(210 18% 11%);
+      --color-surface-foreground: hsl(42 30% 96%);
       --color-border: hsl(210 13% 23%);
+      --color-input: hsl(210 13% 27%);
       --color-primary: hsl(168 68% 42%);
       --color-primary-foreground: hsl(210 20% 8%);
       --color-accent: hsl(31 88% 58%);
       --color-destructive: hsl(354 76% 62%);
+      --color-destructive-foreground: hsl(210 20% 8%);
+      --color-error: hsl(354 76% 62%);
       --color-ring: hsl(168 68% 42%);
     }
   }

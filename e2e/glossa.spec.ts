@@ -1,19 +1,46 @@
 import { expect, test, type Page } from '@playwright/test';
 
-test('home route loads', async ({ page }) => {
+test('home route enters the projects workspace shell', async ({ page }) => {
   await page.goto('/');
+  await waitForAngular(page, 'app-projects-index');
 
-  await expect(page.getByRole('heading', { name: 'Glossa' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Projects' })).toBeVisible();
+  await expect(page).toHaveURL(/\/projects$/);
+  await expect(
+    page.getByRole('heading', { name: 'Projects', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Projects', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText('Translations')).toBeVisible();
+  await expect(page.getByText('Upcoming')).toBeVisible();
 });
 
-test('locale switching works', async ({ page }) => {
-  await page.goto('/');
-  await waitForAngular(page, 'app-home');
+test('shell locale switching works', async ({ page }) => {
+  await page.goto('/projects');
+  await waitForAngular(page, 'app-projects-index');
 
-  await page.locator('#locale').selectOption('es');
+  await page.locator('#shell-locale').selectOption('es');
 
-  await expect(page.getByText('Proyectos / Traducciones')).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Proyectos', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText('Traducciones')).toBeVisible();
+});
+
+test('mobile shell navigation opens in a drawer', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/projects');
+  await waitForAngular(page, 'app-projects-index');
+
+  await page.getByRole('button', { name: 'Open navigation menu' }).click();
+
+  await expect(
+    page.getByRole('navigation', { name: 'Product navigation' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Projects', exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('#mobile-shell-locale')).toBeVisible();
 });
 
 test('health endpoint returns ok', async ({ request }) => {
@@ -110,8 +137,13 @@ test('project creation flow navigates to detail page', async ({ page }) => {
 
   await expect(page).toHaveURL(new RegExp(`/projects/${slug}$`));
   await expect(page.getByRole('heading', { name: 'UI Project' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Overview' })).toBeVisible();
+  await expect(page.getByText(`${slug}.json`)).toHaveCount(0);
+  await expect(page.getByText('en.json')).toBeVisible();
+  await expect(page.getByText('es.json')).toBeVisible();
+  await expect(page.getByText('Not created')).toHaveCount(2);
   await expect(
-    page.getByText('Catalog management will be implemented next.'),
+    page.getByText('Catalog management is the next feature.'),
   ).toBeVisible();
 });
 
