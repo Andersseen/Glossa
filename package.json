@@ -36,7 +36,7 @@
     "@angular/platform-server": "^22.0.0",
     "@angular/router": "^22.0.0",
     "@forge-cms/auth": "0.0.1",
-    "@forge-cms/cloudflare": "0.0.1",
+    "@forge-cms/cloudflare": "0.1.0",
     "@forge-cms/core": "0.0.1",
     "@forge-cms/db": "0.0.1",
     "@forge-cms/runtime": "0.0.1",
