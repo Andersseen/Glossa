@@ -127,21 +127,34 @@ pnpm exec wrangler d1 create glossa
 
 Do not commit Cloudflare secrets. Use dashboard configuration or `.dev.vars` locally for secrets when the app actually needs them.
 
-Production deployment checklist:
+### Deployment
 
-1. Create a D1 database and keep the binding name `DB`.
-2. Replace the placeholder `database_id` in `wrangler.jsonc` with the real database ID.
-3. Set `AUTH_SECRET` as a Cloudflare Pages secret.
-4. Set `DEV_AUTH_ISSUER`, `DEV_AUTH_CLIENT_ID`, and `DEV_AUTH_REDIRECT_URI` as Cloudflare
-   Pages variables, and `DEV_AUTH_CLIENT_SECRET` as a Cloudflare Pages **secret** (never
-   commit it). The redirect URI must match the one registered at DevAuth exactly — that
-   provider compares them byte for byte, with no wildcards.
-5. Optionally set `BOOTSTRAP_ADMIN_KEY` if you want a password-based admin as well; SSO
-   alone does not need it.
-6. Run `pnpm build:cf`.
-7. Deploy through the existing Cloudflare Pages/Analog output.
-8. Hit `/api/health`, then sign in with "Continue with DevAuth" — the first sign-in becomes
-   the admin. Remove or rotate the bootstrap key afterwards if you set one.
+`.github/workflows/deploy.yml` deploys to Cloudflare Pages on every push to `main` (and on
+manual dispatch): it runs `pnpm check`, then `pnpm build:cf`, then
+`wrangler pages deploy dist/analog/public`. There is no D1 migration step — ForgeCMS syncs
+the schema itself through `runtime.syncSchema()`.
+
+One-time setup before the first deploy:
+
+1. Create the D1 database and keep the binding name `DB`:
+   `pnpm exec wrangler d1 create glossa`.
+2. **Replace the placeholder `database_id` in `wrangler.jsonc` with the real one.** It ships
+   as all zeros, which is not a real database.
+3. Create the Pages project (named `glossa`, matching `wrangler.jsonc`) and bind `DB` to
+   that D1 database in its settings.
+4. Set `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as GitHub repository secrets,
+   visible to the `production` environment. The token needs Pages edit and D1 access.
+5. On the Pages project, set `DEV_AUTH_ISSUER`, `DEV_AUTH_CLIENT_ID`, and
+   `DEV_AUTH_REDIRECT_URI` as variables, and `DEV_AUTH_CLIENT_SECRET` plus `AUTH_SECRET` as
+   **secrets** (never committed). The redirect URI must match the one registered at DevAuth
+   byte for byte — that provider does no wildcard matching.
+6. Point the Pages project at the domain whose callback URL you registered, so
+   `DEV_AUTH_REDIRECT_URI` and the deployed origin agree.
+7. Optionally set `BOOTSTRAP_ADMIN_KEY` if you also want a password-based admin; SSO alone
+   does not need one.
+
+After the first deploy, hit `/api/health`, then sign in with "Continue with DevAuth" — the
+first sign-in becomes the admin.
 
 ## Environment
 
