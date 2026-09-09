@@ -18,6 +18,52 @@ API route handlers should stay thin: parse the request, authenticate when authen
 
 Business logic belongs in Glossa domain/services, not Angular components and not HTTP handlers.
 
+## Authentication
+
+DevAuth (an external, already-deployed OAuth 2.1/OIDC provider) is Glossa's primary
+interactive login. DevAuth answers "who is this"; Glossa's own `users` collection
+(`admin`/`editor`/`viewer`) answers "what may they do" and stays authoritative.
+
+```text
+Browser
+  -> GET /api/auth/sso/login        (state, nonce, PKCE S256; short-lived HttpOnly
+                                      glossa_oauth_tx cookie)
+  -> DevAuth authorize endpoint      (existing DevAuth provider session -> no
+                                      credential prompt)
+  -> GET /api/auth/sso/callback      (server-side code exchange, DevAuth userinfo)
+  -> identity resolved: issuer/provider + subject
+       -> existing `external_identities` mapping, or
+       -> first-time link to an existing Glossa user with the same email, or
+       -> a new user provisioned from the identity (first ever -> admin,
+          afterwards -> viewer)
+  -> Glossa's own opaque session created (sso_sessions, SHA-256 token hash only)
+  -> HttpOnly forge_session cookie
+  -> /projects
+```
+
+DevAuth's access/refresh/ID tokens are discarded immediately after the `userinfo` call —
+they are never persisted, never reach Angular, and never become Glossa's session.
+
+The trust boundary is deliberate: DevAuth decides _who may hold an identity_ (it applies a
+signup allowlist to every account-creation path and fails closed), so Glossa provisions a
+user for any identity it vouches for rather than running a second gate on the same question.
+Glossa decides _what that person may do_ — the role on their local user row, which DevAuth
+can neither set nor influence. Note this means `email_verified` is not used as a gate: this
+provider has no transactional email configured and runs with `requireEmailVerification:
+false`, so legitimate accounts there carry `email_verified: false`.
+
+`CompositeAuthAdapter([GlossaSsoAuthAdapter, UsersCollectionAuthAdapter])`
+(`src/server/cms/runtime.ts`) is the single auth boundary every protected route already
+calls through `requireAuth`/`requireWriteUser` — routes never branch on which strategy
+authenticated the request. `GlossaSsoAuthAdapter.canHandleToken` recognizes the
+`glossa_sso_...` prefix; a Forge password-signed token routes to
+`UsersCollectionAuthAdapter` the same as before. Local email/password sign-in remains
+available as a break-glass fallback if DevAuth is unavailable.
+
+See `src/server/auth/` for the OIDC protocol boundary (discovery, PKCE, token exchange,
+userinfo — no ID-token decoding; identity comes from an authenticated `userinfo` call
+only) and `.env.example`/README.md for the required `DEV_AUTH_*` configuration.
+
 ForgeCMS is infrastructure for Glossa. It provides generic CMS/data capabilities under the product, but its generic CRUD API is not Glossa's external API contract.
 
 Etyma is reserved for Glossa's own UI/runtime i18n. It should not become catalog-management domain logic, and Glossa-specific product behavior should not move into Etyma.

@@ -9,6 +9,8 @@ export default tseslint.config(
       'coverage/**',
       'playwright-report/**',
       'test-results/**',
+      // Standalone Node test double for DevAuth (e2e fixture, not application code).
+      'e2e/mock-dev-auth/**',
     ],
   },
   js.configs.recommended,

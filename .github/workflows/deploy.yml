@@ -1,0 +1,92 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Deliberately has no Cloudflare credentials in its environment: it deploys
+  # nothing, and it runs the test suite. Only the job that actually needs an
+  # account-scoped token is given one.
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # format:check, lint, typecheck, test, build. The Playwright suite runs in
+      # ci.yml on this same push rather than a second time here.
+      - run: pnpm check
+
+  deploy:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v6
+
+      # Fail in seconds with a readable message rather than as wrangler's opaque
+      # authentication error partway through a deploy.
+      - name: Verify Cloudflare credentials are present
+        run: |
+          [ -n "$CLOUDFLARE_API_TOKEN" ] || {
+            echo "::error::CLOUDFLARE_API_TOKEN is empty — set it as a repository secret visible to the production environment."
+            exit 1
+          }
+          [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || {
+            echo "::error::CLOUDFLARE_ACCOUNT_ID is empty — set it as a repository secret visible to the production environment."
+            exit 1
+          }
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build:cf
+
+      # `dist/analog/public` is the directory holding `_worker.js` and the static
+      # assets, and is what `pages_build_output_dir` in wrangler.jsonc names.
+      #
+      # Nitro also emits a `_routes.json` one level up, in `dist/analog/`. It is
+      # deliberately not copied in: its `exclude` entries are all prefixed
+      # `/public/...`, which are not the paths this deployment actually serves, so
+      # it would exclude nothing while looking like it does. Without it Pages sends
+      # every request through the worker, which serves assets through its own
+      # ASSETS binding — correct, just not short-circuited at the edge.
+      #
+      # There are no D1 migrations to apply: ForgeCMS syncs the schema itself
+      # through `runtime.syncSchema()` (see src/server/cms/runtime.ts).
+      - name: Deploy to Cloudflare Pages
+        run: >
+          npx wrangler pages deploy dist/analog/public
+          --project-name=glossa
+          --branch=${{ github.ref_name }}

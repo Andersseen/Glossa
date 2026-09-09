@@ -1,8 +1,4 @@
-import {
-  buildSessionCookie,
-  ForgeAuthError,
-  UsersCollectionAuthAdapter,
-} from '@forge-cms/auth';
+import { buildSessionCookie, ForgeAuthError } from '@forge-cms/auth';
 import {
   AccessDeniedError,
   assertCsrfSafe,
@@ -21,7 +17,13 @@ import {
   type H3Event,
 } from 'h3';
 
-import { getCmsRuntime, type GlossaCmsRuntime } from '../cms/runtime';
+import { SSO_TOKEN_PREFIX } from '../auth/session-token';
+import {
+  getCmsRuntime,
+  getPasswordAuthAdapter,
+  type GlossaCmsRuntime,
+} from '../cms/runtime';
+import { revokeSsoSessionByToken } from '../services/sso-session.service';
 import { getCloudflareEnv } from './env';
 
 export type GlossaRole = 'admin' | 'editor' | 'viewer';
@@ -62,15 +64,7 @@ export async function requireWriteUser(
 
 export async function sendLogin(event: H3Event): Promise<void> {
   const runtime = await getAuthRuntimeForEvent(event);
-  const auth = runtime.adapters.auth;
-
-  if (!auth.login) {
-    await sendForgeResponse(
-      event,
-      jsonError('NOT_FOUND', 'Login is not supported.', 404),
-    );
-    return;
-  }
+  const auth = getPasswordAuthAdapter(runtime);
 
   const body = await readJsonBody(toWebRequest(event));
   const email = readBodyString(body, 'email');
@@ -103,11 +97,19 @@ export async function sendLogin(event: H3Event): Promise<void> {
 }
 
 export async function sendLogout(event: H3Event): Promise<void> {
+  assertSameOriginMutation(event);
   const runtime = await getAuthRuntimeForEvent(event);
+  const request = toWebRequest(event);
+  const token = runtime.adapters.auth.extractToken(request);
+
+  if (token && token.startsWith(SSO_TOKEN_PREFIX)) {
+    await revokeSsoSessionByToken(runtime, token);
+  }
+
   await sendForgeResponse(
     event,
     await handleLogout(
-      { request: toWebRequest(event), env: getCloudflareEnv(event) },
+      { request, env: getCloudflareEnv(event) },
       { runtime, cookie: { secure: isSecureCookie(event) } },
     ),
   );
@@ -143,16 +145,8 @@ export async function bootstrapFirstAdmin(event: H3Event): Promise<Response> {
   }
 
   const runtime = await getCmsRuntime(env);
-
-  if (!(runtime.adapters.auth instanceof UsersCollectionAuthAdapter)) {
-    return jsonError(
-      'BOOTSTRAP_UNAVAILABLE',
-      'First-admin bootstrap is unavailable.',
-      500,
-    );
-  }
-
-  const users = await runtime.adapters.auth.listUsers();
+  const auth = getPasswordAuthAdapter(runtime);
+  const users = await auth.listUsers();
 
   if (users.length > 0) {
     return jsonError(
@@ -173,7 +167,7 @@ export async function bootstrapFirstAdmin(event: H3Event): Promise<Response> {
     return jsonError('INVALID_INPUT', 'Email and password are required.', 400);
   }
 
-  const result = await runtime.adapters.auth.createUser({
+  const result = await auth.createUser({
     email,
     password,
     ...(name ? { name } : {}),
@@ -239,7 +233,7 @@ async function sendForgeResponse(
   await sendWebResponse(event, response);
 }
 
-function isSecureCookie(event: H3Event): boolean {
+export function isSecureCookie(event: H3Event): boolean {
   return getRequestURL(event).protocol === 'https:';
 }
 

@@ -18,6 +18,8 @@ Angular / Analog UI
 
 ForgeCMS provides the generic CMS/data foundation beneath Glossa. It is infrastructure, not Glossa's external API contract. Etyma is intended to power Glossa's own UI i18n once the requested `@etyma/*` packages are available on npm.
 
+Glossa's primary sign-in is "Continue with DevAuth" — a short OAuth 2.1/OIDC redirect to DevAuth, an external identity provider. Glossa keeps its own `users` collection, `admin`/`editor`/`viewer` roles, and its own opaque application session; DevAuth only answers "who is this." Local email/password sign-in remains available as a break-glass fallback. See `docs/ARCHITECTURE.md` for the full flow.
+
 ## Stack
 
 - Analog.js with Angular 22 and Vite
@@ -28,7 +30,7 @@ ForgeCMS provides the generic CMS/data foundation beneath Glossa. It is infrastr
 - Angular Movement
 - ForgeCMS packages from npm
 - Cloudflare Pages with a D1 binding named `DB`
-- HttpOnly cookie authentication backed by the ForgeCMS users collection
+- DevAuth OAuth 2.1/OIDC SSO as the primary sign-in, with HttpOnly cookie sessions backed by the ForgeCMS users collection
 - Vitest and Playwright
 
 ## Prerequisites
@@ -62,6 +64,34 @@ curl -X POST http://localhost:5173/api/auth/bootstrap \
 ```
 
 The bootstrap route is unusable without `BOOTSTRAP_ADMIN_KEY` and returns a conflict after the first user exists.
+
+### DevAuth SSO
+
+1. Register Glossa as a client on your DevAuth provider (client id, client secret, and the
+   exact redirect URI `<origin>/api/auth/sso/callback` — DevAuth matches redirect URIs
+   byte for byte, no wildcards).
+2. Put `DEV_AUTH_ISSUER`, `DEV_AUTH_CLIENT_ID`, `DEV_AUTH_CLIENT_SECRET`, and
+   `DEV_AUTH_REDIRECT_URI` in `.dev.vars` (see `.env.example` for the shape). `pnpm dev`
+   loads that file automatically; it is gitignored, so the secret never lands in a commit.
+3. Open `/signin` and choose "Continue with DevAuth." That's it — no bootstrap step, no
+   password.
+
+The first person to sign in through DevAuth becomes Glossa's `admin`; anyone after that is
+provisioned as a `viewer` for an admin to promote. If a Glossa user already exists with the
+same email (a bootstrapped admin, say), that account is adopted instead of duplicated. From
+the first sign-in onwards the identity is keyed on the provider's stable subject, so a later
+change to the email at DevAuth never moves the link.
+
+Glossa deliberately does not run its own second gate on _who_ may sign in: DevAuth already
+decides that, applying its signup allowlist to every account-creation path and failing
+closed. Glossa's own decision is _what_ a person may do, which is the role on their user
+row. Revoking someone's access therefore means removing them at DevAuth — deleting their
+Glossa user drops their role and kills their sessions immediately, but does not stop them
+signing in again.
+
+Local email/password sign-in stays available under "Use local credentials" as a
+break-glass fallback if DevAuth is unavailable, and the `BOOTSTRAP_ADMIN_KEY` route above
+still works for creating an admin without a provider.
 
 ## Testing
 
@@ -97,19 +127,42 @@ pnpm exec wrangler d1 create glossa
 
 Do not commit Cloudflare secrets. Use dashboard configuration or `.dev.vars` locally for secrets when the app actually needs them.
 
-Production deployment checklist:
+### Deployment
 
-1. Create a D1 database and keep the binding name `DB`.
-2. Replace the placeholder `database_id` in `wrangler.jsonc` with the real database ID.
-3. Set `AUTH_SECRET` as a Cloudflare Pages secret.
-4. Temporarily set `BOOTSTRAP_ADMIN_KEY` for first-admin creation.
-5. Run `pnpm build:cf`.
-6. Deploy through the existing Cloudflare Pages/Analog output.
-7. Hit `/api/health`, bootstrap the first admin, sign in at `/signin`, then remove or rotate the bootstrap key.
+`.github/workflows/deploy.yml` deploys to Cloudflare Pages on every push to `main` (and on
+manual dispatch): it runs `pnpm check`, then `pnpm build:cf`, then
+`wrangler pages deploy dist/analog/public`. There is no D1 migration step — ForgeCMS syncs
+the schema itself through `runtime.syncSchema()`.
+
+One-time setup before the first deploy:
+
+1. Create the D1 database and keep the binding name `DB`:
+   `pnpm exec wrangler d1 create glossa`.
+2. **Replace the placeholder `database_id` in `wrangler.jsonc` with the real one.** It ships
+   as all zeros, which is not a real database.
+3. Create the Pages project (named `glossa`, matching `wrangler.jsonc`) and bind `DB` to
+   that D1 database in its settings.
+4. Set `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as GitHub repository secrets,
+   visible to the `production` environment. The token needs Pages edit and D1 access.
+5. On the Pages project, set `DEV_AUTH_ISSUER`, `DEV_AUTH_CLIENT_ID`, and
+   `DEV_AUTH_REDIRECT_URI` as variables, and `DEV_AUTH_CLIENT_SECRET` plus `AUTH_SECRET` as
+   **secrets** (never committed). The redirect URI must match the one registered at DevAuth
+   byte for byte — that provider does no wildcard matching.
+6. Point the Pages project at the domain whose callback URL you registered, so
+   `DEV_AUTH_REDIRECT_URI` and the deployed origin agree.
+7. Optionally set `BOOTSTRAP_ADMIN_KEY` if you also want a password-based admin; SSO alone
+   does not need one.
+
+After the first deploy, hit `/api/health`, then sign in with "Continue with DevAuth" — the
+first sign-in becomes the admin.
 
 ## Environment
 
-See `.env.example`. Required production values are `AUTH_SECRET` and, only during first-admin setup, `BOOTSTRAP_ADMIN_KEY`.
+See `.env.example`. Required production values are `AUTH_SECRET` and, only during
+first-admin setup, `BOOTSTRAP_ADMIN_KEY` — both remain Glossa's own local Forge
+auth/session fallback, unrelated to DevAuth. DevAuth SSO additionally requires
+`DEV_AUTH_ISSUER`, `DEV_AUTH_CLIENT_ID`, `DEV_AUTH_CLIENT_SECRET` (secret, server-only —
+never exposed to Angular, never logged), and `DEV_AUTH_REDIRECT_URI`.
 
 ## Repository Structure
 

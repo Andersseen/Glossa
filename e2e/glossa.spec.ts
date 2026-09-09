@@ -344,6 +344,7 @@ async function signInAsAdmin(page: Page): Promise<void> {
   });
   await page.goto('/signin');
   await waitForAngular(page);
+  await page.getByText('Use local credentials').click();
   await page.getByLabel('Email').fill('admin@example.com');
   await page.getByLabel('Password').fill('correct-password');
   await page.getByRole('button', { name: 'Sign in' }).click();
