@@ -28,4 +28,8 @@ Etyma is reserved for Glossa's own UI/runtime i18n. It should not become catalog
 - `src/app/i18n` contains the initial catalog boundary while `@etyma/*` packages are unavailable on npm.
 - `src/server/routes` contains Analog API route handlers.
 - `src/server/domain` and `src/server/services` contain behavior that routes delegate to.
-- `src/server/cms` centralizes ForgeCMS/D1 integration and schema-facing definitions.
+- `src/server/cms` centralizes ForgeCMS 0.4/D1 integration and schema-facing definitions.
+- `users`, `projects`, and `catalogs` are registered with the ForgeCMS typed Local API.
+- Human authentication uses Forge HttpOnly session cookies. Browser code never stores session tokens in localStorage or sessionStorage.
+- `admin` and `editor` may mutate projects/catalogs. `viewer` is read-only.
+- Project deletion and locale removal are restricted when they would silently lose catalog data.

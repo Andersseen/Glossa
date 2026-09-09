@@ -13,6 +13,14 @@ export type ProjectInput = {
   locales?: unknown;
 };
 
+export type ProjectRecord = {
+  id: unknown;
+  name: unknown;
+  slug: unknown;
+  sourceLocale: unknown;
+  locales: unknown;
+};
+
 export class ProjectValidationError extends Error {
   readonly code = 'PROJECT_VALIDATION_FAILED';
 
@@ -77,16 +85,16 @@ export function mergeProjectInput(
   });
 }
 
-export function toProject(record: Record<string, unknown>): Project {
+export function toProject(record: ProjectRecord): Project {
   return {
-    id: requireString(record['id'], 'Project id is required.'),
-    name: requireString(record['name'], 'Project name is required.'),
-    slug: requireString(record['slug'], 'Project slug is required.'),
+    id: requireString(record.id, 'Project id is required.'),
+    name: requireString(record.name, 'Project name is required.'),
+    slug: requireString(record.slug, 'Project slug is required.'),
     sourceLocale: requireString(
-      record['sourceLocale'],
+      record.sourceLocale,
       'Source locale is required.',
     ),
-    locales: normalizeLocales(record['locales']),
+    locales: normalizeLocales(record.locales),
   };
 }
 

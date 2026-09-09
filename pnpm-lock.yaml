@@ -35,23 +35,23 @@ importers:
         specifier: ^22.0.0
         version: 22.1.3(@angular/common@22.1.3(@angular/core@22.1.3(@angular/compiler@22.1.3)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.1.3(@angular/compiler@22.1.3)(rxjs@7.8.2))(@angular/platform-browser@22.1.3(@angular/common@22.1.3(@angular/core@22.1.3(@angular/compiler@22.1.3)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.1.3(@angular/compiler@22.1.3)(rxjs@7.8.2)))(rxjs@7.8.2)
       '@forge-cms/auth':
-        specifier: 0.0.1
-        version: 0.0.1
+        specifier: 0.4.0
+        version: 0.4.0
       '@forge-cms/cloudflare':
-        specifier: 0.0.1
-        version: 0.0.1
+        specifier: 0.4.0
+        version: 0.4.0
       '@forge-cms/core':
-        specifier: 0.0.1
-        version: 0.0.1
+        specifier: 0.4.0
+        version: 0.4.0
       '@forge-cms/db':
-        specifier: 0.0.1
-        version: 0.0.1
+        specifier: 0.4.0
+        version: 0.4.0
       '@forge-cms/runtime':
-        specifier: 0.0.1
-        version: 0.0.1
+        specifier: 0.4.0
+        version: 0.4.0
       '@forge-cms/storage':
-        specifier: 0.0.1
-        version: 0.0.1
+        specifier: 0.4.0
+        version: 0.4.0
       '@tailwindcss/vite':
         specifier: ^4.1.4
         version: 4.3.3(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.101.0)(terser@5.50.0))
@@ -1683,46 +1683,46 @@ packages:
         integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==,
       }
 
-  '@forge-cms/api@0.0.1':
+  '@forge-cms/api@0.4.0':
     resolution:
       {
-        integrity: sha512-vjV4m3YnfYUtCsF3q5c5l37KhZsdKmlaWA7BA/sBCaCv4LNTRAQwchJ4VWrILM/xLpZf3UdtNpfpctLXMPgI0Q==,
+        integrity: sha512-oFXHHxPB7U17ZmUt0XlyMyI5r6oeySx0MHRm1+L81gs/oBk+8EcsNrqJnBN1CzprLGwWoIlNxwXIkhn3TqHncw==,
       }
 
-  '@forge-cms/auth@0.0.1':
+  '@forge-cms/auth@0.4.0':
     resolution:
       {
-        integrity: sha512-783+oBthU+KlACj3TdY0Xm8ILM4TtSxyTnJhB+1lIdpmlBvVtIk3xkiQaFayoh19q8vP1dvGLdV5Vb3kGmjewA==,
+        integrity: sha512-CzGP3wGs7G5qYbsZcSznb/HADkW5aHSSHaHwkmIhA/vPCv9zcjHXo2EesTrhiG8NMLOBjidnEwMRSefJ8NmJyQ==,
       }
 
-  '@forge-cms/cloudflare@0.0.1':
+  '@forge-cms/cloudflare@0.4.0':
     resolution:
       {
-        integrity: sha512-vW/2Mb0L7dxapr2lqzpchwhNL8pDNwty4QfewhdaDJ9iUflES7Qtc63JBHYEwvB5TmLHMp6SGQev59crQrimkA==,
+        integrity: sha512-gyTHN5AGaej2Rqq2YWxNrDu/5zQE/AzzZfnFxzBAf5r+9YUfDu6CuVhMf573VmYF/TqqaVg/r9BuAGrXjC4/eQ==,
       }
 
-  '@forge-cms/core@0.0.1':
+  '@forge-cms/core@0.4.0':
     resolution:
       {
-        integrity: sha512-lRY2io7hQzl0D493JR3+sbitck9muZgRhDkXeH101/1yryOD4JZcY6hc1Pq9pjzUMtGjExsnyK7+PXyf96ycxQ==,
+        integrity: sha512-oVj1pPNGnmoHiV2GDzmqyh52nwwTmdJzZQIRqhbgQMm7eZqbprp3DI0FtLuFUe5brg9KcdumoTeouMqFE8z6XQ==,
       }
 
-  '@forge-cms/db@0.0.1':
+  '@forge-cms/db@0.4.0':
     resolution:
       {
-        integrity: sha512-cdhuGCCLaK9WHTBF4wozqL+ERQRKMyBBlCWw/dCnjKYTkc7HAxz0/w3YQ+EFw4EBRCygnNc1mnwpPoTM0ljvKg==,
+        integrity: sha512-DY7QT6Vy8+LU9z2A6xzze5Ii8UMAafLOQGPYD4/IkOS6Fp75DlLJqwDZ0pcz0EFFGwjghWGVd5JZU7Ll6hJsOQ==,
       }
 
-  '@forge-cms/runtime@0.0.1':
+  '@forge-cms/runtime@0.4.0':
     resolution:
       {
-        integrity: sha512-8p3sUbtZ3RiYEbqaDnKn7l+EuUR6aYo39TKVY8ehsrTKIBuumww4iT5/eDAR5onz8+yKZn54A121LAXD+X5EBw==,
+        integrity: sha512-iPu3yWpQS1M5Z0GnKLEO7igjAqQaHsV61tVBeXh/XFSQcqVoB5N5E4+dhkeqzcoElRVNBizYRs3Ijqkk7d+FuA==,
       }
 
-  '@forge-cms/storage@0.0.1':
+  '@forge-cms/storage@0.4.0':
     resolution:
       {
-        integrity: sha512-uDnpVywGTafrJ38vd6MYcKR04i7S43LZ8EnBnUaMQp+NgAh8bgqzaRF43dgo+cGmgz27f7TSLX3QgUUOMcHniQ==,
+        integrity: sha512-g45kllPqBcvZwZm74UULzx75Er9j3HXseMS/8J06lw2dcS3sLcb4YACo7LX5MNAY8wvgtTybI0ixOsRe47UeVA==,
       }
 
   '@harperfast/extended-iterable@1.0.3':
@@ -10320,18 +10320,14 @@ snapshots:
 
   '@floating-ui/utils@0.2.12': {}
 
-  '@forge-cms/api@0.0.1':
+  '@forge-cms/api@0.4.0':
     dependencies:
-      '@forge-cms/core': 0.0.1
+      '@forge-cms/core': 0.4.0
 
-  '@forge-cms/auth@0.0.1':
+  '@forge-cms/auth@0.4.0':
     dependencies:
-      '@forge-cms/core': 0.0.1
-
-  '@forge-cms/cloudflare@0.0.1':
-    dependencies:
-      '@forge-cms/core': 0.0.1
-      '@forge-cms/db': 0.0.1
+      '@forge-cms/core': 0.4.0
+      '@forge-cms/db': 0.4.0
     transitivePeerDependencies:
       - '@aws-sdk/client-rds-data'
       - '@cloudflare/workers-types'
@@ -10364,11 +10360,48 @@ snapshots:
       - sqlite3
       - utf-8-validate
 
-  '@forge-cms/core@0.0.1': {}
-
-  '@forge-cms/db@0.0.1':
+  '@forge-cms/cloudflare@0.4.0':
     dependencies:
-      '@forge-cms/core': 0.0.1
+      '@forge-cms/core': 0.4.0
+      '@forge-cms/db': 0.4.0
+      '@forge-cms/storage': 0.4.0
+    transitivePeerDependencies:
+      - '@aws-sdk/client-rds-data'
+      - '@cloudflare/workers-types'
+      - '@electric-sql/pglite'
+      - '@libsql/client-wasm'
+      - '@neondatabase/serverless'
+      - '@op-engineering/op-sqlite'
+      - '@opentelemetry/api'
+      - '@planetscale/database'
+      - '@prisma/client'
+      - '@tidbcloud/serverless'
+      - '@types/better-sqlite3'
+      - '@types/pg'
+      - '@types/sql.js'
+      - '@upstash/redis'
+      - '@vercel/postgres'
+      - '@xata.io/client'
+      - better-sqlite3
+      - bufferutil
+      - bun-types
+      - expo-sqlite
+      - gel
+      - knex
+      - kysely
+      - mysql2
+      - pg
+      - postgres
+      - prisma
+      - sql.js
+      - sqlite3
+      - utf-8-validate
+
+  '@forge-cms/core@0.4.0': {}
+
+  '@forge-cms/db@0.4.0':
+    dependencies:
+      '@forge-cms/core': 0.4.0
       '@libsql/client': 0.17.4
       drizzle-orm: 0.45.2(@libsql/client@0.17.4)
     transitivePeerDependencies:
@@ -10403,13 +10436,13 @@ snapshots:
       - sqlite3
       - utf-8-validate
 
-  '@forge-cms/runtime@0.0.1':
+  '@forge-cms/runtime@0.4.0':
     dependencies:
-      '@forge-cms/api': 0.0.1
-      '@forge-cms/auth': 0.0.1
-      '@forge-cms/core': 0.0.1
-      '@forge-cms/db': 0.0.1
-      '@forge-cms/storage': 0.0.1
+      '@forge-cms/api': 0.4.0
+      '@forge-cms/auth': 0.4.0
+      '@forge-cms/core': 0.4.0
+      '@forge-cms/db': 0.4.0
+      '@forge-cms/storage': 0.4.0
     transitivePeerDependencies:
       - '@aws-sdk/client-rds-data'
       - '@cloudflare/workers-types'
@@ -10442,7 +10475,7 @@ snapshots:
       - sqlite3
       - utf-8-validate
 
-  '@forge-cms/storage@0.0.1': {}
+  '@forge-cms/storage@0.4.0': {}
 
   '@harperfast/extended-iterable@1.0.3':
     optional: true

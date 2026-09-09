@@ -1,11 +1,9 @@
-import { InMemoryAuthAdapter } from '@forge-cms/auth';
+import { UsersCollectionAuthAdapter } from '@forge-cms/auth';
 import { InMemoryDatabaseAdapter } from '@forge-cms/db';
 import { ForgeCmsRuntime } from '@forge-cms/runtime';
 import { InMemoryStorageAdapter } from '@forge-cms/storage';
 
-import { catalogsCollection } from '../cms/collections/catalogs';
-import { projectsCollection } from '../cms/collections/projects';
-import type { GlossaCmsRuntime } from '../cms/runtime';
+import { collections, type GlossaCmsRuntime } from '../cms/runtime';
 import { createProject } from './project.service';
 import {
   CatalogLocaleNotConfiguredError,
@@ -19,14 +17,15 @@ import { ProjectNotFoundError } from './project.service';
 import { CatalogValidationError } from '../domain/catalog';
 
 async function createTestRuntime(): Promise<GlossaCmsRuntime> {
+  const database = new InMemoryDatabaseAdapter();
   const runtime = new ForgeCmsRuntime({
-    collections: [projectsCollection, catalogsCollection],
+    collections,
     adapters: {
-      database: new InMemoryDatabaseAdapter(),
-      auth: new InMemoryAuthAdapter(),
+      database,
+      auth: new UsersCollectionAuthAdapter({ devMode: true }),
       storage: new InMemoryStorageAdapter(),
     },
-    env: {},
+    env: { userDatabase: database },
   }).init();
 
   await runtime.syncSchema();
@@ -166,6 +165,24 @@ describe('catalog service', () => {
     const catalogs = await listCatalogs(cms, 'volt-ui');
     expect(catalogs).toHaveLength(1);
     expect(catalogs[0]?.content).toEqual({ common: { save: 'Guardar' } });
+  });
+
+  it('keeps catalog saves race-safe with the compound unique constraint', async () => {
+    const cms = await createTestRuntime();
+    await createProject(cms, {
+      name: 'Volt UI',
+      slug: 'volt-ui',
+      sourceLocale: 'en',
+      locales: ['en'],
+    });
+
+    await Promise.all([
+      saveCatalog(cms, 'volt-ui', 'en', { common: { save: 'Save' } }),
+      saveCatalog(cms, 'volt-ui', 'en', { common: { save: 'Store' } }),
+    ]);
+
+    const catalogs = await listCatalogs(cms, 'volt-ui');
+    expect(catalogs).toHaveLength(1);
   });
 
   it('preserves string values exactly, including MessageFormat 2 syntax', async () => {

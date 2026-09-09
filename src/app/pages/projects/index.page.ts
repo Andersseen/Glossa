@@ -2,15 +2,17 @@ import { HttpClient } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   inject,
   signal,
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { MOVEMENT_DIRECTIVES } from 'angular-movement';
 import { LmnFolderIcon } from 'lumen-icons/folder';
 import { LmnPlusIcon } from 'lumen-icons/plus';
 import { firstValueFrom } from 'rxjs';
 
+import { AuthClient } from '../../auth/auth-client';
 import { AppShell } from '../../layout/app-shell';
 import { EmptyState } from '../../layout/empty-state';
 import { PageHeader } from '../../layout/page-header';
@@ -58,10 +60,12 @@ type Project = {
         title="Projects"
         description="Manage translation catalogs across your applications."
       >
-        <a routerLink="/projects/new" [class]="newProjectClass">
-          <lmn-plus aria-hidden="true" [size]="16" />
-          New project
-        </a>
+        @if (canWrite()) {
+          <a routerLink="/projects/new" [class]="newProjectClass">
+            <lmn-plus aria-hidden="true" [size]="16" />
+            New project
+          </a>
+        }
       </app-page-header>
 
       <div class="mt-10" [move]="'fade-up'">
@@ -100,9 +104,11 @@ type Project = {
               class="text-muted-foreground"
               aria-hidden="true"
             />
-            <a routerLink="/projects/new" [class]="emptyActionClass">
-              New project
-            </a>
+            @if (canWrite()) {
+              <a routerLink="/projects/new" [class]="emptyActionClass">
+                New project
+              </a>
+            }
           </app-empty-state>
         } @else {
           <div class="grid gap-4 sm:grid-cols-2">
@@ -145,15 +151,33 @@ type Project = {
 })
 export default class ProjectsIndexPage {
   private readonly http = inject(HttpClient);
+  private readonly auth = inject(AuthClient);
+  private readonly router = inject(Router);
 
   protected readonly newProjectClass = buttonVariants({ variant: 'solid' });
   protected readonly emptyActionClass = buttonVariants({ variant: 'outline' });
   protected readonly projects = signal<Project[]>([]);
   protected readonly loading = signal(true);
   protected readonly error = signal('');
+  protected readonly canWrite = computed(() =>
+    ['admin', 'editor'].includes(this.auth.user()?.role ?? ''),
+  );
 
   constructor() {
-    void this.loadProjects();
+    void this.load();
+  }
+
+  private async load(): Promise<void> {
+    const user = await this.auth.loadCurrentUser();
+
+    if (!user) {
+      await this.router.navigate(['/signin'], {
+        queryParams: { redirect: '/projects' },
+      });
+      return;
+    }
+
+    await this.loadProjects();
   }
 
   private async loadProjects(): Promise<void> {

@@ -6,11 +6,12 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MOVEMENT_DIRECTIVES } from 'angular-movement';
 import { LmnDocumentTextIcon } from 'lumen-icons/document-text';
 import { firstValueFrom } from 'rxjs';
 
+import { AuthClient } from '../../auth/auth-client';
 import { AppShell } from '../../layout/app-shell';
 import { PageHeader } from '../../layout/page-header';
 import { UiBadge } from '../../ui/badge';
@@ -200,8 +201,10 @@ type Catalog = {
   `,
 })
 export default class ProjectDetailPage {
+  private readonly auth = inject(AuthClient);
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   protected readonly project = signal<Project | null>(null);
   protected readonly catalogs = signal<Catalog[]>([]);
@@ -227,7 +230,20 @@ export default class ProjectDetailPage {
   });
 
   constructor() {
-    void this.loadProject();
+    void this.load();
+  }
+
+  private async load(): Promise<void> {
+    const user = await this.auth.loadCurrentUser();
+
+    if (!user) {
+      await this.router.navigate(['/signin'], {
+        queryParams: { redirect: this.router.url },
+      });
+      return;
+    }
+
+    await this.loadProject();
   }
 
   private async loadProject(): Promise<void> {

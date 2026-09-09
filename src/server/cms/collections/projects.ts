@@ -8,7 +8,7 @@ export const projectsCollection = defineCollection({
     name: defineField.text({ required: true }),
     slug: defineField.slug({ required: true, unique: true }),
     sourceLocale: defineField.text({ required: true }),
-    locales: defineField.json({ required: true }),
+    locales: defineField.json<string[]>({ required: true }),
   },
 });
 

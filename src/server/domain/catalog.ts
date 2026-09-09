@@ -9,6 +9,13 @@ export type CatalogRecord = {
   content: CatalogContent;
 };
 
+export type StoredCatalogRecord = {
+  project: unknown;
+  locale: unknown;
+  namespace?: unknown;
+  content: unknown;
+};
+
 export class CatalogValidationError extends Error {
   readonly code = 'CATALOG_VALIDATION_FAILED';
 
@@ -28,17 +35,15 @@ export function validateCatalogContent(value: unknown): CatalogContent {
   return validateCatalogNode(value, '');
 }
 
-export function toCatalogRecord(
-  record: Record<string, unknown>,
-): CatalogRecord {
+export function toCatalogRecord(record: StoredCatalogRecord): CatalogRecord {
   return {
-    project: requireString(record['project'], 'Catalog project is required.'),
-    locale: requireString(record['locale'], 'Catalog locale is required.'),
+    project: requireString(record.project, 'Catalog project is required.'),
+    locale: requireString(record.locale, 'Catalog locale is required.'),
     namespace:
-      typeof record['namespace'] === 'string'
-        ? record['namespace']
+      typeof record.namespace === 'string'
+        ? record.namespace
         : DEFAULT_CATALOG_NAMESPACE,
-    content: validateCatalogContent(record['content']),
+    content: validateCatalogContent(record.content),
   };
 }
 

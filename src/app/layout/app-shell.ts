@@ -2,19 +2,23 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  inject,
   signal,
 } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
+import { LmnArrowLeftStartOnRectangleIcon } from 'lumen-icons/arrow-left-start-on-rectangle';
 import { LmnBars3Icon } from 'lumen-icons/bars-3';
 import { LmnFolderIcon } from 'lumen-icons/folder';
 import { LmnLanguageIcon } from 'lumen-icons/language';
 import { LmnXMarkIcon } from 'lumen-icons/x-mark';
 
+import { AuthClient } from '../auth/auth-client';
 import {
   I18N_CATALOGS,
   SUPPORTED_LOCALES,
   type Locale,
 } from '../i18n/catalogs';
+import { UiButton } from '../ui/button';
 import { buttonVariants } from '../ui/button/variants';
 import {
   UiDrawer,
@@ -31,10 +35,12 @@ import { UiNativeSelect } from '../ui/select';
   imports: [
     RouterLink,
     RouterLinkActive,
+    LmnArrowLeftStartOnRectangleIcon,
     LmnBars3Icon,
     LmnFolderIcon,
     LmnLanguageIcon,
     LmnXMarkIcon,
+    UiButton,
     UiDrawer,
     UiDrawerClose,
     UiDrawerContent,
@@ -87,6 +93,28 @@ import { UiNativeSelect } from '../ui/select';
         </nav>
 
         <div class="border-border mt-auto border-t pt-4">
+          @if (auth.user(); as user) {
+            <div class="mb-4 grid gap-2">
+              <p class="truncate text-sm font-medium">
+                {{ user.name || user.email }}
+              </p>
+              <ui-button
+                type="button"
+                variant="outline"
+                size="sm"
+                class="gap-2"
+                (click)="logout()"
+              >
+                <lmn-arrow-left-start-on-rectangle
+                  slot="leading"
+                  aria-hidden="true"
+                  [size]="16"
+                />
+                Logout
+              </ui-button>
+            </div>
+          }
+
           <label
             class="text-muted-foreground mb-2 flex items-center gap-2 text-xs font-medium"
             for="shell-locale"
@@ -179,6 +207,28 @@ import { UiNativeSelect } from '../ui/select';
         </nav>
 
         <div class="border-border mt-8 border-t pt-4">
+          @if (auth.user(); as user) {
+            <div class="mb-4 grid gap-2">
+              <p class="truncate text-sm font-medium">
+                {{ user.name || user.email }}
+              </p>
+              <ui-button
+                type="button"
+                variant="outline"
+                size="sm"
+                class="gap-2"
+                (click)="logout()"
+              >
+                <lmn-arrow-left-start-on-rectangle
+                  slot="leading"
+                  aria-hidden="true"
+                  [size]="16"
+                />
+                Logout
+              </ui-button>
+            </div>
+          }
+
           <label
             class="text-muted-foreground mb-2 flex items-center gap-2 text-xs font-medium"
             for="mobile-shell-locale"
@@ -202,6 +252,7 @@ import { UiNativeSelect } from '../ui/select';
   `,
 })
 export class AppShell {
+  protected readonly auth = inject(AuthClient);
   protected readonly menuButtonClass = buttonVariants({
     variant: 'outline',
     size: 'icon',
@@ -214,5 +265,9 @@ export class AppShell {
     if (SUPPORTED_LOCALES.includes(locale as Locale)) {
       this.locale.set(locale as Locale);
     }
+  }
+
+  protected async logout(): Promise<void> {
+    await this.auth.logout();
   }
 }

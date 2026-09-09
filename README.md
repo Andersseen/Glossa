@@ -1,8 +1,8 @@
 # Glossa
 
-Glossa is a translation management platform for managing and distributing JSON i18n catalogs across software projects.
+Glossa is a translation management product for managing JSON i18n catalogs across software projects.
 
-The project is in an early foundation stage. The current repository proves the application shell, server route layer, Cloudflare target, testing setup, and documentation shape. It does not yet implement project management, catalog editing, API tokens, completeness analysis, or distribution endpoints.
+The project is in an early production-foundation stage. The current repository implements authenticated project CRUD, project locale configuration, JSON catalog editing for the default namespace, ForgeCMS-backed persistence, and a Cloudflare D1 production target. It does not yet implement a complete TMS, API tokens, completeness analysis, AI translation, import/export, or distribution endpoints.
 
 ## Architecture
 
@@ -12,7 +12,7 @@ Glossa is a single Analog.js application:
 Angular / Analog UI
   -> Glossa API routes
   -> Glossa domain and services
-  -> ForgeCMS runtime
+  -> ForgeCMS typed Local API
   -> Cloudflare D1
 ```
 
@@ -28,6 +28,7 @@ ForgeCMS provides the generic CMS/data foundation beneath Glossa. It is infrastr
 - Angular Movement
 - ForgeCMS packages from npm
 - Cloudflare Pages with a D1 binding named `DB`
+- HttpOnly cookie authentication backed by the ForgeCMS users collection
 - Vitest and Playwright
 
 ## Prerequisites
@@ -48,6 +49,19 @@ pnpm dev
 ```
 
 The dev server runs at `http://localhost:5173`.
+
+For authenticated local development, set `AUTH_SECRET` and `BOOTSTRAP_ADMIN_KEY` in your local environment or `.dev.vars`. The in-memory development runtime may use Forge's dev signing secret when `AUTH_SECRET` is absent, but production D1 runtime requires `AUTH_SECRET`.
+
+Create the first administrator once:
+
+```bash
+curl -X POST http://localhost:5173/api/auth/bootstrap \
+  -H 'content-type: application/json' \
+  -H 'x-glossa-bootstrap-key: your-bootstrap-key' \
+  -d '{"email":"admin@example.com","password":"change-this-password","name":"Admin"}'
+```
+
+The bootstrap route is unusable without `BOOTSTRAP_ADMIN_KEY` and returns a conflict after the first user exists.
 
 ## Testing
 
@@ -83,9 +97,19 @@ pnpm exec wrangler d1 create glossa
 
 Do not commit Cloudflare secrets. Use dashboard configuration or `.dev.vars` locally for secrets when the app actually needs them.
 
+Production deployment checklist:
+
+1. Create a D1 database and keep the binding name `DB`.
+2. Replace the placeholder `database_id` in `wrangler.jsonc` with the real database ID.
+3. Set `AUTH_SECRET` as a Cloudflare Pages secret.
+4. Temporarily set `BOOTSTRAP_ADMIN_KEY` for first-admin creation.
+5. Run `pnpm build:cf`.
+6. Deploy through the existing Cloudflare Pages/Analog output.
+7. Hit `/api/health`, bootstrap the first admin, sign in at `/signin`, then remove or rotate the bootstrap key.
+
 ## Environment
 
-See `.env.example`. Only variables currently used by the app should be added there.
+See `.env.example`. Required production values are `AUTH_SECRET` and, only during first-admin setup, `BOOTSTRAP_ADMIN_KEY`.
 
 ## Repository Structure
 

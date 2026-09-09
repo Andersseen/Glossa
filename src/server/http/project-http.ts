@@ -5,13 +5,17 @@ import {
   type H3Event,
 } from 'h3';
 
-import { getCmsRuntime, type GlossaCmsEnv } from '../cms/runtime';
+import { getCmsRuntime } from '../cms/runtime';
 import { ProjectValidationError } from '../domain/project';
 import {
   isProjectServiceError,
+  ProjectDeleteRestrictedError,
+  ProjectLocaleConflictError,
   ProjectNotFoundError,
   ProjectSlugConflictError,
 } from '../services/project.service';
+import { sendAuthBoundaryError } from './auth-http';
+import { getCloudflareEnv } from './env';
 
 export type ProjectErrorBody = {
   error: {
@@ -55,12 +59,16 @@ export function sendProjectError(
     };
   }
 
-  throw error;
+  return sendAuthBoundaryError(event, error);
 }
 
 function getProjectErrorStatus(
   error:
-    ProjectNotFoundError | ProjectSlugConflictError | ProjectValidationError,
+    | ProjectNotFoundError
+    | ProjectSlugConflictError
+    | ProjectLocaleConflictError
+    | ProjectDeleteRestrictedError
+    | ProjectValidationError,
 ): number {
   if (error instanceof ProjectNotFoundError) {
     return 404;
@@ -70,15 +78,12 @@ function getProjectErrorStatus(
     return 409;
   }
 
+  if (
+    error instanceof ProjectLocaleConflictError ||
+    error instanceof ProjectDeleteRestrictedError
+  ) {
+    return 409;
+  }
+
   return 400;
-}
-
-function getCloudflareEnv(event: H3Event): GlossaCmsEnv {
-  const context = event.context as {
-    cloudflare?: {
-      env?: GlossaCmsEnv;
-    };
-  };
-
-  return context.cloudflare?.env ?? {};
 }
