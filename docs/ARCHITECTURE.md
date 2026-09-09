@@ -33,8 +33,9 @@ Browser
   -> GET /api/auth/sso/callback      (server-side code exchange, DevAuth userinfo)
   -> identity resolved: issuer/provider + subject
        -> existing `external_identities` mapping, or
-       -> first-time link by exact, DevAuth-verified email match to an existing
-          Glossa user (never auto-created)
+       -> first-time link to an existing Glossa user with the same email, or
+       -> a new user provisioned from the identity (first ever -> admin,
+          afterwards -> viewer)
   -> Glossa's own opaque session created (sso_sessions, SHA-256 token hash only)
   -> HttpOnly forge_session cookie
   -> /projects
@@ -42,6 +43,14 @@ Browser
 
 DevAuth's access/refresh/ID tokens are discarded immediately after the `userinfo` call —
 they are never persisted, never reach Angular, and never become Glossa's session.
+
+The trust boundary is deliberate: DevAuth decides _who may hold an identity_ (it applies a
+signup allowlist to every account-creation path and fails closed), so Glossa provisions a
+user for any identity it vouches for rather than running a second gate on the same question.
+Glossa decides _what that person may do_ — the role on their local user row, which DevAuth
+can neither set nor influence. Note this means `email_verified` is not used as a gate: this
+provider has no transactional email configured and runs with `requireEmailVerification:
+false`, so legitimate accounts there carry `email_verified: false`.
 
 `CompositeAuthAdapter([GlossaSsoAuthAdapter, UsersCollectionAuthAdapter])`
 (`src/server/cms/runtime.ts`) is the single auth boundary every protected route already

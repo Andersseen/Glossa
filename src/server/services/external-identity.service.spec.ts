@@ -65,9 +65,9 @@ describe('resolveOrLinkUser', () => {
     });
   });
 
-  it('denies linking when the email is not verified', async () => {
+  it('links an unverified provider email, since this provider cannot verify emails at all', async () => {
     const cms = await createTestRuntime();
-    await createGlossaUser(cms, 'admin@example.com');
+    const user = await createGlossaUser(cms, 'admin@example.com');
 
     const resolved = await resolveOrLinkUser(
       cms,
@@ -75,11 +75,10 @@ describe('resolveOrLinkUser', () => {
       identity({ emailVerified: false }),
     );
 
-    expect(resolved).toBeNull();
-    expect(await findIdentity(cms, PROVIDER, 'devauth-subject-1')).toBeNull();
+    expect(resolved?.id).toEqual(user.id);
   });
 
-  it('denies linking when no email is present', async () => {
+  it('denies an identity with no email at all, which cannot become a user row', async () => {
     const cms = await createTestRuntime();
     await createGlossaUser(cms, 'admin@example.com');
 
@@ -92,13 +91,53 @@ describe('resolveOrLinkUser', () => {
     expect(resolved).toBeNull();
   });
 
-  it('denies linking when no Glossa user matches the email', async () => {
+  it('provisions the first user as an admin when the install is empty', async () => {
     const cms = await createTestRuntime();
 
     const resolved = await resolveOrLinkUser(cms, PROVIDER, identity());
 
-    expect(resolved).toBeNull();
-    expect(await findIdentity(cms, PROVIDER, 'devauth-subject-1')).toBeNull();
+    expect(resolved).toMatchObject({
+      email: 'admin@example.com',
+      role: 'admin',
+    });
+    expect(
+      await findIdentity(cms, PROVIDER, 'devauth-subject-1'),
+    ).toMatchObject({
+      user: resolved?.id,
+    });
+  });
+
+  it('provisions a later unknown identity as a viewer, not an admin', async () => {
+    const cms = await createTestRuntime();
+    await createGlossaUser(cms, 'admin@example.com');
+
+    const resolved = await resolveOrLinkUser(
+      cms,
+      PROVIDER,
+      identity({
+        subject: 'devauth-subject-2',
+        email: 'someone-new@example.com',
+      }),
+    );
+
+    expect(resolved).toMatchObject({
+      email: 'someone-new@example.com',
+      role: 'viewer',
+    });
+  });
+
+  it('never gives a provisioned user a usable password', async () => {
+    const cms = await createTestRuntime();
+    const resolved = await resolveOrLinkUser(cms, PROVIDER, identity());
+    if (!resolved)
+      throw new Error('Expected the first identity to be provisioned.');
+
+    const stored = await cms.findByID({
+      collection: 'users',
+      id: resolved.id,
+    });
+
+    expect(stored['passwordHash']).toBeFalsy();
   });
 
   it('uses the existing mapping on a later login, preserving the user role', async () => {
@@ -134,7 +173,12 @@ describe('resolveOrLinkUser', () => {
     expect(resolved?.id).toEqual(originalUser.id);
   });
 
-  it('denies access once the linked user has been deleted, without recreating it', async () => {
+  // Deleting a user is not a revocation mechanism under this model: who may hold an identity is
+  // DevAuth's decision (its signup allowlist), so the same person signing in again is provisioned a
+  // fresh account. What deletion *does* guarantee is that their existing sessions die immediately and
+  // their old row — including its role — is gone (see sso-session.service.spec.ts). Revoking access
+  // for good means removing them at DevAuth.
+  it('provisions a fresh account if a deleted user signs in again, rather than restoring the old row', async () => {
     const cms = await createTestRuntime();
     const user = await createGlossaUser(cms, 'admin@example.com');
     await resolveOrLinkUser(cms, PROVIDER, identity());
@@ -143,7 +187,11 @@ describe('resolveOrLinkUser', () => {
 
     const resolved = await resolveOrLinkUser(cms, PROVIDER, identity());
 
-    expect(resolved).toBeNull();
+    expect(resolved).not.toBeNull();
+    expect(resolved?.id).not.toEqual(user.id);
+    expect(
+      await findIdentity(cms, PROVIDER, 'devauth-subject-1'),
+    ).toMatchObject({ user: resolved?.id });
   });
 
   it('keeps a single mapping when two concurrent first-logins race for the same subject', async () => {

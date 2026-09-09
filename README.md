@@ -67,18 +67,31 @@ The bootstrap route is unusable without `BOOTSTRAP_ADMIN_KEY` and returns a conf
 
 ### DevAuth SSO
 
-1. Bootstrap the first Glossa admin as above.
-2. Make sure that admin's email matches an account on your DevAuth provider.
-3. Set `DEV_AUTH_ISSUER`, `DEV_AUTH_CLIENT_ID`, `DEV_AUTH_CLIENT_SECRET`, and
-   `DEV_AUTH_REDIRECT_URI` (see `.env.example`) — DevAuth must have a matching client
-   registration for these values (client id, redirect URI, secret).
-4. Open `/signin` and choose "Continue with DevAuth." The first successful sign-in links
-   your DevAuth identity to that existing Glossa admin by exact email match; every sign-in
-   after that uses the linked identity, not email. An unrecognized DevAuth identity is
-   denied with a clear message rather than creating a new account.
+1. Register Glossa as a client on your DevAuth provider (client id, client secret, and the
+   exact redirect URI `<origin>/api/auth/sso/callback` — DevAuth matches redirect URIs
+   byte for byte, no wildcards).
+2. Put `DEV_AUTH_ISSUER`, `DEV_AUTH_CLIENT_ID`, `DEV_AUTH_CLIENT_SECRET`, and
+   `DEV_AUTH_REDIRECT_URI` in `.dev.vars` (see `.env.example` for the shape). `pnpm dev`
+   loads that file automatically; it is gitignored, so the secret never lands in a commit.
+3. Open `/signin` and choose "Continue with DevAuth." That's it — no bootstrap step, no
+   password.
+
+The first person to sign in through DevAuth becomes Glossa's `admin`; anyone after that is
+provisioned as a `viewer` for an admin to promote. If a Glossa user already exists with the
+same email (a bootstrapped admin, say), that account is adopted instead of duplicated. From
+the first sign-in onwards the identity is keyed on the provider's stable subject, so a later
+change to the email at DevAuth never moves the link.
+
+Glossa deliberately does not run its own second gate on _who_ may sign in: DevAuth already
+decides that, applying its signup allowlist to every account-creation path and failing
+closed. Glossa's own decision is _what_ a person may do, which is the role on their user
+row. Revoking someone's access therefore means removing them at DevAuth — deleting their
+Glossa user drops their role and kills their sessions immediately, but does not stop them
+signing in again.
 
 Local email/password sign-in stays available under "Use local credentials" as a
-break-glass fallback if DevAuth is unavailable.
+break-glass fallback if DevAuth is unavailable, and the `BOOTSTRAP_ADMIN_KEY` route above
+still works for creating an admin without a provider.
 
 ## Testing
 
@@ -119,15 +132,16 @@ Production deployment checklist:
 1. Create a D1 database and keep the binding name `DB`.
 2. Replace the placeholder `database_id` in `wrangler.jsonc` with the real database ID.
 3. Set `AUTH_SECRET` as a Cloudflare Pages secret.
-4. Temporarily set `BOOTSTRAP_ADMIN_KEY` for first-admin creation.
-5. Set `DEV_AUTH_ISSUER`, `DEV_AUTH_CLIENT_ID`, and `DEV_AUTH_REDIRECT_URI` as Cloudflare
+4. Set `DEV_AUTH_ISSUER`, `DEV_AUTH_CLIENT_ID`, and `DEV_AUTH_REDIRECT_URI` as Cloudflare
    Pages variables, and `DEV_AUTH_CLIENT_SECRET` as a Cloudflare Pages **secret** (never
-   commit it). The redirect URI's exact production value needs maintainer input — DevAuth
-   matches redirect URIs exactly, no wildcards.
+   commit it). The redirect URI must match the one registered at DevAuth exactly — that
+   provider compares them byte for byte, with no wildcards.
+5. Optionally set `BOOTSTRAP_ADMIN_KEY` if you want a password-based admin as well; SSO
+   alone does not need it.
 6. Run `pnpm build:cf`.
 7. Deploy through the existing Cloudflare Pages/Analog output.
-8. Hit `/api/health`, bootstrap the first admin, confirm "Continue with DevAuth" links
-   that admin's account, then remove or rotate the bootstrap key.
+8. Hit `/api/health`, then sign in with "Continue with DevAuth" — the first sign-in becomes
+   the admin. Remove or rotate the bootstrap key afterwards if you set one.
 
 ## Environment
 

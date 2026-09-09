@@ -87,23 +87,22 @@ test('logout revokes the local session; the provider session still allows immedi
   await expect(page).toHaveURL(/\/projects$/);
 });
 
-test('a DevAuth identity with no matching Glossa account is denied safely', async ({
+// Who may hold an identity at all is the provider's decision (DevAuth gates every account-creation
+// path on its signup allowlist), so an identity Glossa has never seen before is provisioned rather
+// than refused — no bootstrap step, no password.
+test('a DevAuth identity Glossa has never seen is provisioned and signed in', async ({
   page,
 }) => {
   await page.goto('/signin');
   await waitForAngular(page);
   await continueWithDevAuth(page);
-  await signInAtMockProvider(page, 'unlinked-devauth-user@example.com');
+  await signInAtMockProvider(page, `new-identity-${Date.now()}@example.com`);
 
-  await expect(page).toHaveURL(/\/signin\?error=account_not_linked$/);
+  await expect(page).toHaveURL(/\/projects$/);
   await waitForAngular(page);
-  await expect(
-    page.getByText('Your DevAuth identity is not linked to a Glossa account.'),
-  ).toBeVisible();
 
-  await page.goto('/projects');
-  await waitForAngular(page);
-  await expect(page).toHaveURL(/\/signin/);
+  const meResponse = await page.request.get('/api/auth/me');
+  expect(meResponse.ok()).toBe(true);
 });
 
 async function waitForAngular(page: Page): Promise<void> {

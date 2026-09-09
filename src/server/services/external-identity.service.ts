@@ -77,10 +77,10 @@ export async function linkNewIdentity(
 
 /**
  * First-time linking only: an existing Glossa user whose email exactly matches (case/whitespace
- * insensitive) the DevAuth-verified email. Never used once a `[provider, subject]` mapping exists —
- * see spec's "email change safety" (subject remains authoritative after the first link).
+ * insensitive) the provider's. Never used once a `[provider, subject]` mapping exists — the subject
+ * remains authoritative after the first link, so a changed provider email cannot move the link.
  */
-export async function findGlossaUserByVerifiedEmail(
+export async function findGlossaUserByEmail(
   cms: GlossaCmsRuntime,
   email: string,
 ): Promise<GlossaUserRecord | null> {
@@ -93,11 +93,59 @@ export async function findGlossaUserByVerifiedEmail(
 }
 
 /**
+ * Provisions a Glossa user for a DevAuth identity that has never signed in here before, and links it.
+ * The first user in an empty install becomes `admin` (the same rule
+ * `UsersCollectionAuthAdapter.createUser`/`signup` already applies to the password path); anyone
+ * after that starts as `viewer` and an admin can promote them.
+ *
+ * `passwordHash` is deliberately left unset: `UsersCollectionAuthAdapter.login` treats a missing hash
+ * as "invalid credentials", so an SSO-provisioned account cannot be signed into with a password
+ * unless one is deliberately set later.
+ */
+async function provisionUserFromIdentity(
+  cms: GlossaCmsRuntime,
+  provider: string,
+  identity: ExternalIdentity,
+  email: string,
+): Promise<GlossaUserRecord> {
+  const isFirstUser = (await cms.count({ collection: USERS_COLLECTION })) === 0;
+
+  const created = await cms.create({
+    collection: USERS_COLLECTION,
+    data: {
+      email: normalizeEmail(email),
+      ...(identity.name ? { name: identity.name } : {}),
+      role: isFirstUser ? 'admin' : 'viewer',
+    },
+  });
+
+  await linkNewIdentity(cms, provider, identity.subject, created.id, email);
+  return created as unknown as GlossaUserRecord;
+}
+
+/**
  * The whole account-linking policy, in one place per AGENTS.md ("keep domain logic out of HTTP
- * handlers"). `provider + subject` is checked first and, once a mapping exists, is authoritative
- * forever — a later change to the provider email never relinks or recreates a user (spec: "email
- * change safety"). Only a brand-new subject may be linked, and only by an exact, DevAuth-verified
- * email match against an *existing* Glossa user; anything else is denied, never auto-created.
+ * handlers").
+ *
+ * Who is allowed to exist at all is DevAuth's decision, not Glossa's: every account-creation path on
+ * that side (password sign-up and GitHub alike) runs through its `SIGNUP_ALLOWLIST` check in
+ * `databaseHooks.user.create.before`, and fails closed. Reaching this function therefore already
+ * means the provider vouched for the person, which is the same trust boundary DevFlare's and
+ * Imageryx's own consumers rely on. Glossa's job is only to decide *what they may do* — hence a role
+ * on a local user row, never a second gate on *who they are*.
+ *
+ * Resolution order:
+ * 1. `provider + subject` — the stable OIDC identity key. Once a mapping exists it is authoritative
+ *    forever, so a later change to the provider's email never relinks or recreates a user.
+ * 2. An exact email match against an existing Glossa user — adopts accounts that predate SSO
+ *    (a bootstrapped admin, say) instead of duplicating them. Email is only ever a *hint* for this
+ *    first link; the subject takes over immediately afterwards.
+ * 3. Otherwise provision a new user (see {@link provisionUserFromIdentity}).
+ *
+ * Note there is deliberately no `email_verified` requirement: this DevAuth deployment has no
+ * transactional email provider and runs with `requireEmailVerification: false`, so legitimate
+ * password accounts there carry `email_verified: false`. Gating on it would reject the provider's own
+ * valid identities while adding nothing — the allowlist, not the flag, is what constrains access.
  */
 export async function resolveOrLinkUser(
   cms: GlossaCmsRuntime,
@@ -119,21 +167,24 @@ export async function resolveOrLinkUser(
     }
   }
 
-  if (!identity.email || !identity.emailVerified) {
+  // The users collection requires a unique email, so an identity with no email at all cannot be
+  // stored as a user. DevAuth always returns one for the `email` scope; this is a guard, not a gate.
+  if (!identity.email) {
     return null;
   }
 
-  const matchedUser = await findGlossaUserByVerifiedEmail(cms, identity.email);
-  if (!matchedUser) {
-    return null;
+  const matchedUser = await findGlossaUserByEmail(cms, identity.email);
+
+  if (matchedUser) {
+    await linkNewIdentity(
+      cms,
+      provider,
+      identity.subject,
+      matchedUser.id,
+      identity.email,
+    );
+    return matchedUser;
   }
 
-  await linkNewIdentity(
-    cms,
-    provider,
-    identity.subject,
-    matchedUser.id,
-    identity.email,
-  );
-  return matchedUser;
+  return provisionUserFromIdentity(cms, provider, identity, identity.email);
 }
