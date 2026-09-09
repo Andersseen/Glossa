@@ -6,8 +6,16 @@ Glossa is a single Analog.js application backed by ForgeCMS 0.4.x public npm pac
 
 - Project CRUD with required name, unique slug, source locale, and locale list validation.
 - JSON catalog list/get/save/delete for the default internal namespace.
-- ForgeCMS collections: `users`, `projects`, and `catalogs`.
-- Browser authentication through Forge HttpOnly session cookies.
+- ForgeCMS collections: `users`, `projects`, `catalogs`, `external_identities`, `sso_sessions`.
+- Primary interactive auth: DevAuth OAuth 2.1/OIDC SSO (Authorization Code + PKCE S256,
+  server-side code exchange, identity from `userinfo`).
+- Application authorization: Glossa's own `users` collection, `admin`/`editor`/`viewer`
+  roles — DevAuth never assigns a Glossa role.
+- Application session: Glossa-owned opaque, D1-backed session (`sso_sessions`, SHA-256
+  token hash only, 24h TTL) for DevAuth sign-ins, delivered through the same HttpOnly
+  `forge_session` cookie via `CompositeAuthAdapter`.
+- Fallback: Forge local email/password auth remains available as a break-glass path.
+- DevAuth provider tokens (access/refresh/ID) are never persisted as a Glossa session.
 - First-admin bootstrap through a one-time, server-side route protected by `BOOTSTRAP_ADMIN_KEY`.
 - Phase-1 roles: `admin` and `editor` can write; `viewer` can read only.
 - Cloudflare Pages target with D1 binding `DB`.

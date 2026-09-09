@@ -48,9 +48,17 @@ export class AuthClient {
     this.loaded.set(true);
   }
 
+  /**
+   * Starts the DevAuth OIDC flow with a top-level navigation — the server owns the whole exchange,
+   * so there is no token for Angular to receive or store.
+   */
+  loginWithDevAuth(returnTo?: string): void {
+    const query = returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : '';
+    window.location.href = `/api/auth/sso/login${query}`;
+  }
+
   async logout(): Promise<void> {
     await firstValueFrom(this.http.post('/api/auth/logout', {}));
-    document.cookie = 'forge_session=; Path=/; Max-Age=0; SameSite=Lax';
     this.user.set(null);
     this.loaded.set(true);
     await this.router.navigate(['/signin']);
