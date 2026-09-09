@@ -11,12 +11,16 @@ import {
 import { provideFileRouter, requestContextInterceptor } from '@analogjs/router';
 import { provideMovement } from 'angular-movement';
 
+import { authInterceptor } from './auth/auth-interceptor';
+
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideZonelessChangeDetection(),
     provideFileRouter(),
-    provideHttpClient(withInterceptors([requestContextInterceptor])),
+    provideHttpClient(
+      withInterceptors([requestContextInterceptor, authInterceptor]),
+    ),
     provideClientHydration(withEventReplay()),
     provideMovement({
       duration: 260,

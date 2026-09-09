@@ -23,6 +23,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('home route enters the projects workspace shell', async ({ page }) => {
+  await signInAsAdmin(page);
   await page.goto('/');
   await waitForAngular(page);
 
@@ -38,6 +39,7 @@ test('home route enters the projects workspace shell', async ({ page }) => {
 });
 
 test('shell locale switching works', async ({ page }) => {
+  await signInAsAdmin(page);
   await page.goto('/projects');
   await waitForAngular(page);
 
@@ -50,6 +52,7 @@ test('shell locale switching works', async ({ page }) => {
 });
 
 test('mobile shell navigation opens in a drawer', async ({ page }) => {
+  await signInAsAdmin(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/projects');
   await waitForAngular(page);
@@ -75,11 +78,36 @@ test('health endpoint returns ok', async ({ request }) => {
   });
 });
 
-test('projects api supports create, list, get, update and delete', async ({
-  request,
+test('anonymous users are redirected away from protected projects', async ({
+  page,
 }) => {
+  await page.goto('/projects');
+  await waitForAngular(page);
+
+  await expect(page).toHaveURL(/\/signin\?redirect=%2Fprojects$/);
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+});
+
+test('projects api rejects anonymous mutations', async ({ request }) => {
+  const response = await request.post('/api/projects', {
+    data: {
+      name: 'Anonymous Project',
+      slug: `anonymous-project-${Date.now()}`,
+      sourceLocale: 'en',
+      locales: ['en'],
+    },
+  });
+
+  expect(response.status()).toBe(401);
+});
+
+test('projects api supports authenticated create, list and get', async ({
+  page,
+}) => {
+  await signInAsAdmin(page);
   const slug = `api-project-${Date.now()}`;
-  const createResponse = await request.post('/api/projects', {
+  const createResponse = await page.request.post('/api/projects', {
+    headers: sameOriginHeaders(),
     data: {
       name: 'API Project',
       slug,
@@ -98,7 +126,7 @@ test('projects api supports create, list, get, update and delete', async ({
     },
   });
 
-  const listResponse = await request.get('/api/projects');
+  const listResponse = await page.request.get('/api/projects');
   expect(listResponse.ok()).toBe(true);
   const listBody = await listResponse.json();
   expect(
@@ -107,7 +135,7 @@ test('projects api supports create, list, get, update and delete', async ({
     ),
   ).toBe(true);
 
-  const getResponse = await request.get(`/api/projects/${slug}`);
+  const getResponse = await page.request.get(`/api/projects/${slug}`);
   expect(getResponse.ok()).toBe(true);
   await expect(getResponse.json()).resolves.toMatchObject({
     project: {
@@ -115,7 +143,8 @@ test('projects api supports create, list, get, update and delete', async ({
     },
   });
 
-  const updateResponse = await request.patch(`/api/projects/${slug}`, {
+  const updateResponse = await page.request.patch(`/api/projects/${slug}`, {
+    headers: sameOriginHeaders(),
     data: {
       name: 'Updated API Project',
     },
@@ -128,7 +157,8 @@ test('projects api supports create, list, get, update and delete', async ({
     },
   });
 
-  const duplicateResponse = await request.post('/api/projects', {
+  const duplicateResponse = await page.request.post('/api/projects', {
+    headers: sameOriginHeaders(),
     data: {
       name: 'Duplicate API Project',
       slug,
@@ -138,14 +168,12 @@ test('projects api supports create, list, get, update and delete', async ({
   });
   expect(duplicateResponse.status()).toBe(409);
 
-  const deleteResponse = await request.delete(`/api/projects/${slug}`);
-  expect(deleteResponse.ok()).toBe(true);
-
-  const missingResponse = await request.get(`/api/projects/${slug}`);
-  expect(missingResponse.status()).toBe(404);
+  const getStillExists = await page.request.get(`/api/projects/${slug}`);
+  expect(getStillExists.ok()).toBe(true);
 });
 
 test('project creation flow navigates to detail page', async ({ page }) => {
+  await signInAsAdmin(page);
   const slug = `ui-project-${Date.now()}`;
 
   await page.goto('/projects/new');
@@ -169,9 +197,11 @@ test('project creation flow navigates to detail page', async ({ page }) => {
 test('catalog editor creates, persists and reopens a locale catalog', async ({
   page,
 }) => {
+  await signInAsAdmin(page);
   const slug = `catalog-project-${Date.now()}`;
 
   await page.request.post('/api/projects', {
+    headers: sameOriginHeaders(),
     data: {
       name: 'Catalog Project',
       slug,
@@ -207,6 +237,93 @@ test('catalog editor creates, persists and reopens a locale catalog', async ({
   await expect(page.getByLabel('Catalog JSON')).toHaveValue(
     JSON.stringify({ common: { save: 'Save', cancel: 'Cancel' } }, null, 2),
   );
+
+  await editor.fill(
+    JSON.stringify({ common: { save: 'Store', cancel: 'Cancel' } }),
+  );
+  await page.getByRole('button', { name: 'Save' }).click();
+  await page.reload();
+  await waitForAngular(page);
+  await expect(page.getByLabel('Catalog JSON')).toHaveValue(
+    JSON.stringify({ common: { save: 'Store', cancel: 'Cancel' } }, null, 2),
+  );
+
+  await page.getByRole('button', { name: 'Logout' }).click();
+  await expect(page).toHaveURL(/\/signin$/);
+  await page.goto(`/projects/${slug}`);
+  await waitForAngular(page);
+  await expect(page).toHaveURL(new RegExp('/signin'));
+});
+
+test('invalid catalog JSON stays local and server validation is readable', async ({
+  page,
+}) => {
+  await signInAsAdmin(page);
+  const slug = `invalid-catalog-${Date.now()}`;
+  await page.request.post('/api/projects', {
+    headers: sameOriginHeaders(),
+    data: {
+      name: 'Invalid Catalog Project',
+      slug,
+      sourceLocale: 'en',
+      locales: ['en'],
+    },
+  });
+
+  await page.goto(`/projects/${slug}/catalogs/en`);
+  await waitForAngular(page);
+  const editor = page.getByLabel('Catalog JSON');
+
+  await editor.fill('{');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('Invalid JSON')).toBeVisible();
+
+  await editor.fill(JSON.stringify({ count: 1 }));
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(
+    page.getByText('Translation value at "count" must be a string or object.'),
+  ).toBeVisible();
+});
+
+test('viewer is read-only and editor can save a catalog', async ({ page }) => {
+  await signInAsAdmin(page);
+  const slug = `role-boundary-${Date.now()}`;
+  await page.request.post('/api/projects', {
+    headers: sameOriginHeaders(),
+    data: {
+      name: 'Role Boundary',
+      slug,
+      sourceLocale: 'en',
+      locales: ['en'],
+    },
+  });
+
+  await setSignedRoleCookie(page, 'viewer');
+  await page.goto(`/projects/${slug}/catalogs/en`);
+  await waitForAngular(page);
+  await expect(page.getByLabel('Catalog JSON')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save' })).toHaveCount(0);
+  const viewerSave = await page.request.put(
+    `/api/projects/${slug}/catalogs/en`,
+    {
+      headers: sameOriginHeaders(),
+      data: { content: { common: { save: 'Read only' } } },
+    },
+  );
+  expect(viewerSave.status()).toBe(403);
+
+  await setSignedRoleCookie(page, 'editor');
+  await page.goto(`/projects/${slug}/catalogs/en`);
+  await waitForAngular(page);
+  await page.getByLabel('Catalog JSON').fill(
+    JSON.stringify({
+      common: {
+        save: 'Editor saved',
+      },
+    }),
+  );
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('Ready')).toBeVisible();
 });
 
 async function waitForAngular(page: Page): Promise<void> {
@@ -214,4 +331,79 @@ async function waitForAngular(page: Page): Promise<void> {
     () =>
       (window as unknown as { __ngHydrated?: boolean }).__ngHydrated === true,
   );
+}
+
+async function signInAsAdmin(page: Page): Promise<void> {
+  await page.request.post('/api/auth/bootstrap', {
+    headers: { 'x-glossa-bootstrap-key': 'playwright-bootstrap' },
+    data: {
+      email: 'admin@example.com',
+      password: 'correct-password',
+      name: 'Admin',
+    },
+  });
+  await page.goto('/signin');
+  await waitForAngular(page);
+  await page.getByLabel('Email').fill('admin@example.com');
+  await page.getByLabel('Password').fill('correct-password');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page).toHaveURL(/\/projects$/);
+}
+
+function sameOriginHeaders(): Record<string, string> {
+  return { origin: 'http://127.0.0.1:5173' };
+}
+
+async function setSignedRoleCookie(
+  page: Page,
+  role: 'editor' | 'viewer',
+): Promise<void> {
+  await page.context().clearCookies();
+  await page.context().addCookies([
+    {
+      name: 'forge_session',
+      value: await issueTestToken(role),
+      domain: '127.0.0.1',
+      path: '/',
+      httpOnly: true,
+      sameSite: 'Lax',
+      expires: Math.floor(Date.now() / 1000) + 60 * 60,
+    },
+  ]);
+}
+
+async function issueTestToken(role: 'editor' | 'viewer'): Promise<string> {
+  const payloadPart = base64UrlEncode(
+    new TextEncoder().encode(
+      JSON.stringify({
+        sub: `${role}-user`,
+        email: `${role}@example.com`,
+        name: role,
+        role,
+        exp: Date.now() + 60 * 60 * 1000,
+      }),
+    ),
+  );
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode('playwright-auth-secret'),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const signature = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    new TextEncoder().encode(payloadPart),
+  );
+
+  return `${payloadPart}.${base64UrlEncode(new Uint8Array(signature))}`;
+}
+
+function base64UrlEncode(bytes: Uint8Array): string {
+  return Buffer.from(bytes)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
 }

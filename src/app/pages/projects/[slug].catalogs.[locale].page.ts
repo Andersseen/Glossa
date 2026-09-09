@@ -2,6 +2,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   inject,
   signal,
 } from '@angular/core';
@@ -9,6 +10,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MOVEMENT_DIRECTIVES } from 'angular-movement';
 import { firstValueFrom } from 'rxjs';
 
+import { AuthClient } from '../../auth/auth-client';
 import { AppShell } from '../../layout/app-shell';
 import { PageHeader } from '../../layout/page-header';
 import { UiBadge } from '../../ui/badge';
@@ -146,15 +148,21 @@ type Catalog = {
                 >
                   Back to project
                 </a>
-                <ui-button type="button" [disabled]="saving()" (click)="save()">
-                  {{ saving() ? 'Saving...' : 'Save' }}
-                </ui-button>
+                @if (canWrite()) {
+                  <ui-button
+                    type="button"
+                    [disabled]="saving()"
+                    (click)="save()"
+                  >
+                    {{ saving() ? 'Saving...' : 'Save' }}
+                  </ui-button>
+                }
               </div>
             </div>
           </ui-card-content>
         </ui-card>
 
-        @if (catalogExists()) {
+        @if (catalogExists() && canWrite()) {
           <ui-card class="border-destructive/40 mt-6" [move]="'fade-up'">
             <ui-card-content class="grid gap-4 pt-6">
               <div>
@@ -208,6 +216,7 @@ type Catalog = {
   `,
 })
 export default class CatalogEditorPage {
+  private readonly auth = inject(AuthClient);
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -233,9 +242,25 @@ export default class CatalogEditorPage {
   protected readonly confirmingDelete = signal(false);
   protected readonly deleting = signal(false);
   protected readonly deleteError = signal('');
+  protected readonly canWrite = computed(() =>
+    ['admin', 'editor'].includes(this.auth.user()?.role ?? ''),
+  );
 
   constructor() {
-    void this.load();
+    void this.loadAuthAndCatalog();
+  }
+
+  private async loadAuthAndCatalog(): Promise<void> {
+    const user = await this.auth.loadCurrentUser();
+
+    if (!user) {
+      await this.router.navigate(['/signin'], {
+        queryParams: { redirect: this.router.url },
+      });
+      return;
+    }
+
+    await this.load();
   }
 
   protected async save(): Promise<void> {

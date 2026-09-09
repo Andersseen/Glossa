@@ -1,5 +1,6 @@
 import { eventHandler } from 'h3';
 
+import { requireUser } from '../../../http/auth-http';
 import { listProjects } from '../../../services/project.service';
 import {
   getRuntimeForEvent,
@@ -8,6 +9,7 @@ import {
 
 export default eventHandler(async (event) => {
   try {
+    await requireUser(event);
     const cms = await getRuntimeForEvent(event);
     return {
       projects: await listProjects(cms),

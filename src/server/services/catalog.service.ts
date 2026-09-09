@@ -1,4 +1,8 @@
+import { UniqueConstraintError } from '@forge-cms/runtime';
+import type { CollectionDocument } from '@forge-cms/core';
+
 import type { GlossaCmsRuntime } from '../cms/runtime';
+import { catalogsCollection } from '../cms/collections/catalogs';
 import {
   CatalogValidationError,
   DEFAULT_CATALOG_NAMESPACE,
@@ -9,6 +13,7 @@ import {
 import { getProjectBySlug } from './project.service';
 
 const CATALOGS_COLLECTION = 'catalogs';
+type CatalogDocument = CollectionDocument<typeof catalogsCollection>;
 
 export class CatalogNotFoundError extends Error {
   readonly code = 'CATALOG_NOT_FOUND';
@@ -23,6 +28,14 @@ export class CatalogLocaleNotConfiguredError extends Error {
 
   constructor(locale: string) {
     super(`Locale "${locale}" is not configured for this project.`);
+  }
+}
+
+export class CatalogIdentityConflictError extends Error {
+  readonly code = 'CATALOG_IDENTITY_CONFLICT';
+
+  constructor() {
+    super('Catalog already exists for this project, locale, and namespace.');
   }
 }
 
@@ -83,13 +96,10 @@ export async function saveCatalog(
   const record = existing
     ? await cms.update({
         collection: CATALOGS_COLLECTION,
-        id: requireId(existing),
+        id: existing.id,
         data,
       })
-    : await cms.create({
-        collection: CATALOGS_COLLECTION,
-        data,
-      });
+    : await createOrUpdateCatalog(cms, project.id, locale, data);
 
   return toCatalogRecord(record);
 }
@@ -110,7 +120,7 @@ export async function deleteCatalog(
 
   const record = await cms.delete({
     collection: CATALOGS_COLLECTION,
-    id: requireId(existing),
+    id: existing.id,
   });
 
   return toCatalogRecord(record);
@@ -121,10 +131,12 @@ export function isCatalogServiceError(
 ): error is
   | CatalogNotFoundError
   | CatalogLocaleNotConfiguredError
+  | CatalogIdentityConflictError
   | CatalogValidationError {
   return (
     error instanceof CatalogNotFoundError ||
     error instanceof CatalogLocaleNotConfiguredError ||
+    error instanceof CatalogIdentityConflictError ||
     error instanceof CatalogValidationError
   );
 }
@@ -139,27 +151,51 @@ async function findCatalog(
   cms: GlossaCmsRuntime,
   projectId: string,
   locale: string,
-): Promise<Record<string, unknown> | null> {
-  const page = await cms.find({
+): Promise<CatalogDocument | null> {
+  return cms.findOne({
     collection: CATALOGS_COLLECTION,
     where: {
       project: projectId,
       locale,
       namespace: DEFAULT_CATALOG_NAMESPACE,
     },
-    limit: 1,
   });
-
-  const [record] = page.docs;
-  return record ?? null;
 }
 
-function requireId(record: Record<string, unknown>): string {
-  const id = record['id'];
+async function createOrUpdateCatalog(
+  cms: GlossaCmsRuntime,
+  projectId: string,
+  locale: string,
+  data: {
+    project: string;
+    locale: string;
+    namespace: string;
+    content: ReturnType<typeof validateCatalogContent>;
+  },
+) {
+  try {
+    return await cms.create({
+      collection: CATALOGS_COLLECTION,
+      data,
+    });
+  } catch (error) {
+    if (
+      error instanceof UniqueConstraintError &&
+      error.collection === CATALOGS_COLLECTION
+    ) {
+      const existing = await findCatalog(cms, projectId, locale);
 
-  if (typeof id !== 'string' || !id) {
-    throw new CatalogValidationError('Catalog id is required.');
+      if (!existing) {
+        throw new CatalogIdentityConflictError();
+      }
+
+      return cms.update({
+        collection: CATALOGS_COLLECTION,
+        id: existing.id,
+        data,
+      });
+    }
+
+    throw error;
   }
-
-  return id;
 }

@@ -1,4 +1,4 @@
-import { validateProjectInput } from '../../domain/project';
+import { mergeProjectInput, validateProjectInput } from '../../domain/project';
 
 describe('project domain validation', () => {
   it('accepts a minimal valid project', () => {
@@ -37,6 +37,37 @@ describe('project domain validation', () => {
         locales: ['en', 'en'],
       }),
     ).toThrow('Locales must be unique.');
+  });
+
+  it('rejects a source locale outside the locale list', () => {
+    expect(() =>
+      validateProjectInput({
+        name: 'Marketing Site',
+        slug: 'marketing-site',
+        sourceLocale: 'en',
+        locales: ['es'],
+      }),
+    ).toThrow('Locales must include the source locale.');
+  });
+
+  it('merges project updates before validation', () => {
+    expect(
+      mergeProjectInput(
+        {
+          id: 'project-1',
+          name: 'Marketing Site',
+          slug: 'marketing-site',
+          sourceLocale: 'en',
+          locales: ['en', 'es'],
+        },
+        { name: 'Docs Site' },
+      ),
+    ).toEqual({
+      name: 'Docs Site',
+      slug: 'marketing-site',
+      sourceLocale: 'en',
+      locales: ['en', 'es'],
+    });
   });
 
   it('accepts BCP 47 style locale tags', () => {

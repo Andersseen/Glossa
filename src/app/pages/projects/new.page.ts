@@ -13,6 +13,7 @@ import { LmnPlusIcon } from 'lumen-icons/plus';
 import { LmnTrashIcon } from 'lumen-icons/trash';
 import { firstValueFrom } from 'rxjs';
 
+import { AuthClient } from '../../auth/auth-client';
 import { AppShell } from '../../layout/app-shell';
 import { PageHeader } from '../../layout/page-header';
 import { UiBadge } from '../../ui/badge';
@@ -202,6 +203,7 @@ type Project = {
   `,
 })
 export default class ProjectNewPage {
+  private readonly auth = inject(AuthClient);
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
 
@@ -248,6 +250,10 @@ export default class ProjectNewPage {
       this.locales().length > 0 &&
       this.sourceLocaleValid(),
   );
+
+  constructor() {
+    void this.auth.loadCurrentUser();
+  }
 
   protected setName(value: string): void {
     this.name.set(value);

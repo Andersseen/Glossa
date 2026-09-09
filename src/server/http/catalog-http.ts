@@ -8,6 +8,7 @@ import {
 import type { CatalogValidationError } from '../domain/catalog';
 import {
   isCatalogServiceError,
+  CatalogIdentityConflictError,
   CatalogLocaleNotConfiguredError,
   CatalogNotFoundError,
 } from '../services/catalog.service';
@@ -46,9 +47,17 @@ function setCatalogErrorStatus(
   error:
     | CatalogNotFoundError
     | CatalogLocaleNotConfiguredError
+    | CatalogIdentityConflictError
     | CatalogValidationError,
 ): void {
-  setResponseStatus(event, error instanceof CatalogNotFoundError ? 404 : 400);
+  setResponseStatus(
+    event,
+    error instanceof CatalogNotFoundError
+      ? 404
+      : error instanceof CatalogIdentityConflictError
+        ? 409
+        : 400,
+  );
 }
 
 function getPathSegmentAfter(
