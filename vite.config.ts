@@ -46,6 +46,25 @@ export default defineConfig(({ command }) => {
     resolve: {
       mainFields: ['module'],
     },
+    // Angular core reads a *bare* `ngDevMode` identifier in production code paths (not
+    // `typeof ngDevMode`, which never throws) — safe only because Angular's own browser
+    // bootstrap sets `globalThis.ngDevMode` before anything else runs. The SSR/server bundle
+    // has no such guarantee: nothing in this app relies on `@angular/build`'s Angular CLI
+    // pipeline, which is what normally applies this same `define` for production. Without it,
+    // a `ReferenceError: ngDevMode is not defined` is one Vite chunk-splitting decision away —
+    // it depends on load order the bundler owes no guarantee, and it can appear or disappear
+    // with an unrelated code change (this exact regression was bisected against a prior commit
+    // that happened to chunk things in an order where it didn't surface). `define` removes the
+    // identifier at build time instead of leaving it to that ordering: every `ngDevMode`
+    // reference across the whole SSR bundle — Angular core included — becomes the literal
+    // `false`, so there is nothing left to reference at runtime, in Node or in a Workers preview
+    // (`pnpm preview`, `pnpm preview:cf`) or once actually deployed.
+    define:
+      command === 'build'
+        ? {
+            ngDevMode: 'false',
+          }
+        : undefined,
     server: {
       warmup: {
         // Pre-transform every route and its SSR counterpart on server start

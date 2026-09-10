@@ -9,6 +9,8 @@ export default tseslint.config(
       'coverage/**',
       'playwright-report/**',
       'test-results/**',
+      // Wrangler's local bundling cache (e.g. from `wrangler pages dev`), already gitignored.
+      '.wrangler/**',
       // Standalone Node test double for DevAuth (e2e fixture, not application code).
       'e2e/mock-dev-auth/**',
     ],
