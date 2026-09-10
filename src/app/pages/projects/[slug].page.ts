@@ -14,6 +14,7 @@ import { firstValueFrom } from 'rxjs';
 import { AuthClient } from '../../auth/auth-client';
 import { AppShell } from '../../layout/app-shell';
 import { PageHeader } from '../../layout/page-header';
+import { AccessTokensPanel } from './access-tokens-panel';
 import { UiBadge } from '../../ui/badge';
 import {
   UiBreadcrumbItem,
@@ -48,6 +49,7 @@ type Catalog = {
 @Component({
   selector: 'app-project-detail',
   imports: [
+    AccessTokensPanel,
     AppShell,
     PageHeader,
     RouterLink,
@@ -120,7 +122,7 @@ type Catalog = {
             <ui-tabs-trigger value="translations" disabled>
               Translations
             </ui-tabs-trigger>
-            <ui-tabs-trigger value="api" disabled>API</ui-tabs-trigger>
+            <ui-tabs-trigger value="tokens">Access tokens</ui-tabs-trigger>
           </ui-tabs-list>
 
           <ui-tabs-content value="overview" class="mt-8">
@@ -190,10 +192,8 @@ type Catalog = {
             </p>
           </ui-tabs-content>
 
-          <ui-tabs-content value="api">
-            <p class="text-muted-foreground text-sm">
-              API access will be designed after catalogs exist.
-            </p>
+          <ui-tabs-content value="tokens" class="mt-8">
+            <app-access-tokens-panel [projectSlug]="project.slug" />
           </ui-tabs-content>
         </ui-tabs>
       }

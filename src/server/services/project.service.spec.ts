@@ -26,7 +26,7 @@ async function createTestRuntime(): Promise<GlossaCmsRuntime> {
       auth: new UsersCollectionAuthAdapter({ devMode: true }),
       storage: new InMemoryStorageAdapter(),
     },
-    env: { userDatabase: database },
+    env: { userDatabase: database, apiKeyDatabase: database },
   }).init();
 
   await runtime.syncSchema();

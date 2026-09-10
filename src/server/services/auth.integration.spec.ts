@@ -18,7 +18,7 @@ async function createAuthRuntime(): Promise<{
       auth,
       storage: new InMemoryStorageAdapter(),
     },
-    env: { userDatabase: database },
+    env: { userDatabase: database, apiKeyDatabase: database },
   }).init();
 
   await cms.syncSchema();

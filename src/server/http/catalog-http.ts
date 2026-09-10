@@ -11,6 +11,7 @@ import {
   CatalogIdentityConflictError,
   CatalogLocaleNotConfiguredError,
   CatalogNotFoundError,
+  CatalogRevisionConflictError,
 } from '../services/catalog.service';
 import { sendProjectError, type ProjectErrorBody } from './project-http';
 
@@ -48,6 +49,7 @@ function setCatalogErrorStatus(
     | CatalogNotFoundError
     | CatalogLocaleNotConfiguredError
     | CatalogIdentityConflictError
+    | CatalogRevisionConflictError
     | CatalogValidationError,
 ): void {
   setResponseStatus(
@@ -56,7 +58,9 @@ function setCatalogErrorStatus(
       ? 404
       : error instanceof CatalogIdentityConflictError
         ? 409
-        : 400,
+        : error instanceof CatalogRevisionConflictError
+          ? 412
+          : 400,
   );
 }
 

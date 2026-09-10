@@ -9,6 +9,7 @@ import {
   type Project,
   type ProjectInput,
 } from '../domain/project';
+import { revokeAllProjectTokens } from './project-token.service';
 
 const PROJECTS_COLLECTION = 'projects';
 const CATALOGS_COLLECTION = 'catalogs';
@@ -68,6 +69,30 @@ export async function getProjectBySlug(
   return project;
 }
 
+/**
+ * Resolves a project by its immutable id rather than slug — used by the machine API, which
+ * derives project identity from trusted API-key metadata (`metadata.projectId`), never from a
+ * client-supplied slug (see `requireProjectMachineContext`).
+ */
+export async function getProjectById(
+  cms: GlossaCmsRuntime,
+  id: string,
+): Promise<Project> {
+  const page = await cms.find({
+    collection: PROJECTS_COLLECTION,
+    where: { id },
+    limit: 1,
+  });
+
+  const [record] = page.docs;
+
+  if (!record) {
+    throw new ProjectNotFoundError();
+  }
+
+  return toProject(record);
+}
+
 export async function createProject(
   cms: GlossaCmsRuntime,
   input: ProjectInput,
@@ -116,6 +141,9 @@ export async function deleteProject(
     collection: PROJECTS_COLLECTION,
     id: current.id,
   });
+
+  // A deleted project must never leave a machine token usable against dangling metadata.
+  await revokeAllProjectTokens(cms, current.id);
 
   return toProject(record);
 }

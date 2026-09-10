@@ -28,7 +28,7 @@ async function createTestRuntime(): Promise<{
   const cms = new ForgeCmsRuntime({
     collections,
     adapters: { database, auth, storage: new InMemoryStorageAdapter() },
-    env: { userDatabase: database },
+    env: { userDatabase: database, apiKeyDatabase: database },
   }).init();
   ssoAdapter.init({ userDatabase: database });
 
