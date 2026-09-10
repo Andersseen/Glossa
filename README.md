@@ -1,15 +1,16 @@
 # Glossa
 
-Glossa is a translation-management layer for humans and development tools. Humans manage
-projects and catalogs through the web UI, while project-scoped access tokens let agents and
-CI safely read and update the same translation catalogs programmatically.
+Glossa is a translation control plane for humans, applications, and AI agents. Humans manage
+catalogs through the web UI; applications consume public, cacheable translation JSON through
+stable Cloudflare URLs; and agents interact through a project-scoped remote MCP server,
+authenticated with the same access token as the machine catalog API.
 
 The project is in an early production-foundation stage. The current repository implements
 authenticated project CRUD, project locale configuration, JSON catalog editing for the
 default namespace, ForgeCMS-backed persistence, a Cloudflare D1 production target, project
-access tokens, and a machine catalog API with optimistic-concurrency writes. It does not yet
-implement completeness analysis, AI translation, import/export, distribution endpoints, an
-MCP server, or a CLI.
+access tokens, a machine catalog API with optimistic-concurrency writes, public runtime
+catalog delivery, and a remote MCP server. It does not yet implement completeness analysis,
+AI translation, import/export, or a CLI.
 
 ## Architecture
 
@@ -39,6 +40,13 @@ curl -s \
   -H "Authorization: Bearer $GLOSSA_TOKEN" \
   "$GLOSSA_URL/api/machine/v1/project"
 ```
+
+A project explicitly opted into **public delivery** exposes its catalogs as unauthenticated,
+cacheable JSON at stable URLs (`/i18n/:slug/manifest.json`, `/i18n/:slug/:locale.json`) — see
+`docs/PUBLIC_DELIVERY.md`. The same project access token above also authenticates Glossa's
+remote **MCP server** at `/mcp`, giving an AI coding agent `get_project`/`list_catalogs`/
+`get_catalog`/`get_translation`/`set_translation`/`get_delivery_urls` tools without a
+consumer repository implementing any protocol glue — see `docs/MCP.md`.
 
 ## Stack
 

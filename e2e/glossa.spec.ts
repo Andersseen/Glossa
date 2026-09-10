@@ -188,10 +188,14 @@ test('project creation flow navigates to detail page', async ({ page }) => {
   await expect(page).toHaveURL(new RegExp(`/projects/${slug}$`));
   await expect(page.getByRole('heading', { name: 'UI Project' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Overview' })).toBeVisible();
-  await expect(page.getByText(`${slug}.json`)).toHaveCount(0);
-  await expect(page.getByText('en.json')).toBeVisible();
-  await expect(page.getByText('es.json')).toBeVisible();
-  await expect(page.getByText('Not created')).toHaveCount(2);
+
+  // Scoped to the Overview tabpanel — the Delivery tab also renders `<locale>.json` labels for
+  // its runtime URLs, and Angular's tabs component keeps every tabpanel mounted in the DOM.
+  const overview = page.getByRole('tabpanel', { name: 'Overview' });
+  await expect(overview.getByText(`${slug}.json`)).toHaveCount(0);
+  await expect(overview.getByText('en.json')).toBeVisible();
+  await expect(overview.getByText('es.json')).toBeVisible();
+  await expect(overview.getByText('Not created')).toHaveCount(2);
 });
 
 test('catalog editor creates, persists and reopens a locale catalog', async ({
