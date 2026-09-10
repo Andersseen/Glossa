@@ -134,6 +134,12 @@ manual dispatch): it runs `pnpm check`, then `pnpm build:cf`, then
 `wrangler pages deploy dist/analog/public`. There is no D1 migration step — ForgeCMS syncs
 the schema itself through `runtime.syncSchema()`.
 
+`pnpm deploy:cf` runs that same build-then-deploy locally (`wrangler` reads its own login,
+not `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` — run `pnpm exec wrangler login` once if
+you have not already). Useful for a first deploy before CI credentials exist, or to ship
+without waiting on a push to `main`. Named `deploy:cf` rather than `deploy`: pnpm reserves
+the bare `deploy` command for workspace package deploys and would otherwise shadow it.
+
 One-time setup before the first deploy:
 
 1. Create the D1 database and keep the binding name `DB`:

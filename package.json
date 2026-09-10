@@ -15,6 +15,7 @@
     "watch": "vite build --watch",
     "preview": "node dist/analog/server/index.mjs",
     "preview:cf": "wrangler pages dev dist/analog/public --compatibility-date=2026-08-25",
+    "deploy:cf": "pnpm build:cf && wrangler pages deploy dist/analog/public --project-name=glossa",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
