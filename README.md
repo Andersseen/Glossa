@@ -1,8 +1,15 @@
 # Glossa
 
-Glossa is a translation management product for managing JSON i18n catalogs across software projects.
+Glossa is a translation-management layer for humans and development tools. Humans manage
+projects and catalogs through the web UI, while project-scoped access tokens let agents and
+CI safely read and update the same translation catalogs programmatically.
 
-The project is in an early production-foundation stage. The current repository implements authenticated project CRUD, project locale configuration, JSON catalog editing for the default namespace, ForgeCMS-backed persistence, and a Cloudflare D1 production target. It does not yet implement a complete TMS, API tokens, completeness analysis, AI translation, import/export, or distribution endpoints.
+The project is in an early production-foundation stage. The current repository implements
+authenticated project CRUD, project locale configuration, JSON catalog editing for the
+default namespace, ForgeCMS-backed persistence, a Cloudflare D1 production target, project
+access tokens, and a machine catalog API with optimistic-concurrency writes. It does not yet
+implement completeness analysis, AI translation, import/export, distribution endpoints, an
+MCP server, or a CLI.
 
 ## Architecture
 
@@ -19,6 +26,19 @@ Angular / Analog UI
 ForgeCMS provides the generic CMS/data foundation beneath Glossa. It is infrastructure, not Glossa's external API contract. Etyma is intended to power Glossa's own UI i18n once the requested `@etyma/*` packages are available on npm.
 
 Glossa's primary sign-in is "Continue with DevAuth" — a short OAuth 2.1/OIDC redirect to DevAuth, an external identity provider. Glossa keeps its own `users` collection, `admin`/`editor`/`viewer` roles, and its own opaque application session; DevAuth only answers "who is this." Local email/password sign-in remains available as a break-glass fallback. See `docs/ARCHITECTURE.md` for the full flow.
+
+A project's `admin` can also issue a project-scoped **access token** from that project's
+"Access tokens" tab, for an AI coding agent, CI process, or developer tool. See
+`docs/MACHINE_API.md` for the full machine API and the recommended discovery flow — in short:
+
+```bash
+export GLOSSA_URL="https://glossa.example"
+export GLOSSA_TOKEN="glossa_..."
+
+curl -s \
+  -H "Authorization: Bearer $GLOSSA_TOKEN" \
+  "$GLOSSA_URL/api/machine/v1/project"
+```
 
 ## Stack
 

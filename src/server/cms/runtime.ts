@@ -1,4 +1,5 @@
 import {
+  ApiKeyAuthAdapter,
   CompositeAuthAdapter,
   UsersCollectionAuthAdapter,
 } from '@forge-cms/auth';
@@ -27,7 +28,17 @@ export type GlossaCmsEnv = {
 
 type AuthEnv = GlossaCmsEnv & {
   userDatabase: D1DatabaseAdapter | InMemoryDatabaseAdapter;
+  apiKeyDatabase: D1DatabaseAdapter | InMemoryDatabaseAdapter;
 };
+
+/**
+ * Non-secret label on every Glossa-issued project access token (`glossa_<recordId>_<secret>`).
+ * Distinct enough from `SSO_TOKEN_PREFIX` (`glossa_sso_...`, session-token.ts) that a real SSO
+ * token is always claimed by `GlossaSsoAuthAdapter` first in the composite order below — an
+ * expired/invalid SSO token falling through to `ApiKeyAuthAdapter`'s cheap format check is a
+ * harmless extra lookup, never an authentication bypass (see composite-auth.spec.ts).
+ */
+export const PROJECT_TOKEN_PREFIX = 'glossa';
 
 const typedUsersCollection = usersCollection as CollectionDefinition<
   'users',
@@ -54,10 +65,13 @@ let memoryRuntime: GlossaCmsRuntime | undefined;
 let memoryRuntimeReady: Promise<GlossaCmsRuntime> | undefined;
 
 /**
- * DevAuth SSO is the primary login path; Forge local password auth remains a break-glass fallback.
- * `GlossaSsoAuthAdapter`'s `canHandleToken` (a `glossa_sso_...` prefix check) and
- * `UsersCollectionAuthAdapter`'s (a signed `payload.signature` shape check) cleanly discriminate the
- * two token formats, so `CompositeAuthAdapter` never needs route-level branching.
+ * DevAuth SSO is the primary login path; Forge local password auth remains a break-glass
+ * fallback; `ApiKeyAuthAdapter` authenticates machine (`role: 'machine'`) callers of the machine
+ * catalog API. `GlossaSsoAuthAdapter`'s `canHandleToken` (a `glossa_sso_...` prefix check),
+ * `UsersCollectionAuthAdapter`'s (a signed `payload.signature` shape check), and
+ * `ApiKeyAuthAdapter`'s (a `glossa_<id>_<secret>` shape check) cleanly discriminate the three
+ * token formats, so `CompositeAuthAdapter` never needs route-level branching. Order matters only
+ * for the SSO-prefix edge case documented at `PROJECT_TOKEN_PREFIX` — SSO is tried first.
  */
 export function createCmsRuntime(env: GlossaCmsEnv = {}): GlossaCmsRuntime {
   if (env?.DB) {
@@ -65,6 +79,7 @@ export function createCmsRuntime(env: GlossaCmsEnv = {}): GlossaCmsRuntime {
     const auth = new CompositeAuthAdapter([
       new GlossaSsoAuthAdapter(),
       new UsersCollectionAuthAdapter(),
+      new ApiKeyAuthAdapter({ prefix: PROJECT_TOKEN_PREFIX }),
     ]);
 
     return new ForgeCmsRuntime<AuthEnv, typeof collections>({
@@ -74,7 +89,7 @@ export function createCmsRuntime(env: GlossaCmsEnv = {}): GlossaCmsRuntime {
         auth,
         storage: new InMemoryStorageAdapter(),
       },
-      env: { ...env, userDatabase: database },
+      env: { ...env, userDatabase: database, apiKeyDatabase: database },
     }).init();
   }
 
@@ -87,10 +102,11 @@ export function createCmsRuntime(env: GlossaCmsEnv = {}): GlossaCmsRuntime {
       auth: new CompositeAuthAdapter([
         new GlossaSsoAuthAdapter(),
         new UsersCollectionAuthAdapter({ devMode: true }),
+        new ApiKeyAuthAdapter({ prefix: PROJECT_TOKEN_PREFIX }),
       ]),
       storage: new InMemoryStorageAdapter(),
     },
-    env: { ...env, userDatabase: database },
+    env: { ...env, userDatabase: database, apiKeyDatabase: database },
   }).init();
 
   return memoryRuntime;
@@ -119,6 +135,24 @@ export function getPasswordAuthAdapter(
     : new UsersCollectionAuthAdapter({ devMode: true });
 
   return adapter.init(env);
+}
+
+/**
+ * The API-key adapter for direct use (project token create/list/get/revoke/delete) — same
+ * rationale as `getPasswordAuthAdapter`: `CompositeAuthAdapter` deliberately exposes only the
+ * common `AuthAdapter` surface, not each child adapter's own extra methods, so this builds a
+ * fresh `ApiKeyAuthAdapter` bound to the exact same `apiKeyDatabase` the runtime already uses.
+ */
+export function getProjectApiKeyAdapter(
+  runtime: GlossaCmsRuntime,
+): ApiKeyAuthAdapter {
+  const env = runtime.config.env;
+
+  if (!env) {
+    throw new Error('CMS runtime has no environment configured.');
+  }
+
+  return new ApiKeyAuthAdapter({ prefix: PROJECT_TOKEN_PREFIX }).init(env);
 }
 
 export async function getCmsRuntime(

@@ -8,10 +8,12 @@ import { createProject } from './project.service';
 import {
   CatalogLocaleNotConfiguredError,
   CatalogNotFoundError,
+  CatalogRevisionConflictError,
   deleteCatalog,
   getCatalog,
   listCatalogs,
   saveCatalog,
+  saveCatalogWithPrecondition,
 } from './catalog.service';
 import { ProjectNotFoundError } from './project.service';
 import { CatalogValidationError } from '../domain/catalog';
@@ -25,11 +27,20 @@ async function createTestRuntime(): Promise<GlossaCmsRuntime> {
       auth: new UsersCollectionAuthAdapter({ devMode: true }),
       storage: new InMemoryStorageAdapter(),
     },
-    env: { userDatabase: database },
+    env: { userDatabase: database, apiKeyDatabase: database },
   }).init();
 
   await runtime.syncSchema();
   return runtime;
+}
+
+async function setUpProject(cms: GlossaCmsRuntime, locales: string[] = ['en']) {
+  return createProject(cms, {
+    name: 'Volt UI',
+    slug: 'volt-ui',
+    sourceLocale: 'en',
+    locales,
+  });
 }
 
 describe('catalog service', () => {
@@ -199,5 +210,160 @@ describe('catalog service', () => {
     const catalog = await getCatalog(cms, 'volt-ui', 'en');
 
     expect(catalog.content['count']).toBe(message);
+  });
+
+  it('advances the revision on every human write, not just machine writes', async () => {
+    const cms = await createTestRuntime();
+    await setUpProject(cms);
+
+    const first = await saveCatalog(cms, 'volt-ui', 'en', {
+      common: { save: 'Save' },
+    });
+    const second = await saveCatalog(cms, 'volt-ui', 'en', {
+      common: { save: 'Guardar' },
+    });
+
+    expect(first.revision).toBeTruthy();
+    expect(second.revision).toBeTruthy();
+    expect(second.revision).not.toBe(first.revision);
+  });
+});
+
+describe('catalog service — optimistic concurrency', () => {
+  it('creates a new catalog with no precondition header at all', async () => {
+    const cms = await createTestRuntime();
+    await setUpProject(cms);
+
+    const created = await saveCatalogWithPrecondition(
+      cms,
+      'volt-ui',
+      'en',
+      { common: { save: 'Save' } },
+      {},
+    );
+
+    expect(created.content).toEqual({ common: { save: 'Save' } });
+    expect(created.revision).toBeTruthy();
+  });
+
+  it('creates a new catalog when If-None-Match: * is asserted', async () => {
+    const cms = await createTestRuntime();
+    await setUpProject(cms);
+
+    const created = await saveCatalogWithPrecondition(
+      cms,
+      'volt-ui',
+      'en',
+      { common: { save: 'Save' } },
+      { ifNoneMatchAny: true },
+    );
+
+    expect(created.content).toEqual({ common: { save: 'Save' } });
+  });
+
+  it('refuses If-Match against a catalog that does not exist yet', async () => {
+    const cms = await createTestRuntime();
+    await setUpProject(cms);
+
+    await expect(
+      saveCatalogWithPrecondition(
+        cms,
+        'volt-ui',
+        'en',
+        { common: { save: 'Save' } },
+        { ifMatch: 'some-revision' },
+      ),
+    ).rejects.toBeInstanceOf(CatalogRevisionConflictError);
+
+    await expect(getCatalog(cms, 'volt-ui', 'en')).rejects.toBeInstanceOf(
+      CatalogNotFoundError,
+    );
+  });
+
+  it('refuses a blind write to an existing catalog with no precondition header', async () => {
+    const cms = await createTestRuntime();
+    await setUpProject(cms);
+    await saveCatalog(cms, 'volt-ui', 'en', { common: { save: 'Save' } });
+
+    await expect(
+      saveCatalogWithPrecondition(
+        cms,
+        'volt-ui',
+        'en',
+        { common: { save: 'Overwritten' } },
+        {},
+      ),
+    ).rejects.toBeInstanceOf(CatalogRevisionConflictError);
+
+    const catalog = await getCatalog(cms, 'volt-ui', 'en');
+    expect(catalog.content).toEqual({ common: { save: 'Save' } });
+  });
+
+  it('refuses If-None-Match: * against a catalog that already exists', async () => {
+    const cms = await createTestRuntime();
+    await setUpProject(cms);
+    await saveCatalog(cms, 'volt-ui', 'en', { common: { save: 'Save' } });
+
+    await expect(
+      saveCatalogWithPrecondition(
+        cms,
+        'volt-ui',
+        'en',
+        { common: { save: 'Overwritten' } },
+        { ifNoneMatchAny: true },
+      ),
+    ).rejects.toBeInstanceOf(CatalogRevisionConflictError);
+  });
+
+  it('updates when If-Match carries the current revision, and advances the revision', async () => {
+    const cms = await createTestRuntime();
+    await setUpProject(cms);
+    const initial = await saveCatalog(cms, 'volt-ui', 'en', {
+      common: { save: 'Save' },
+    });
+
+    const updated = await saveCatalogWithPrecondition(
+      cms,
+      'volt-ui',
+      'en',
+      { common: { save: 'Guardar' } },
+      { ifMatch: initial.revision },
+    );
+
+    expect(updated.content).toEqual({ common: { save: 'Guardar' } });
+    expect(updated.revision).not.toBe(initial.revision);
+  });
+
+  it('rejects a stale If-Match and preserves the newer content — the core conflict scenario', async () => {
+    const cms = await createTestRuntime();
+    await setUpProject(cms);
+    const initial = await saveCatalog(cms, 'volt-ui', 'en', {
+      common: { save: 'Save' },
+    });
+
+    // A human edits the catalog through the normal (unpreconditioned) save path...
+    const humanEdit = await saveCatalog(cms, 'volt-ui', 'en', {
+      common: { save: 'Human edit' },
+    });
+    expect(humanEdit.revision).not.toBe(initial.revision);
+
+    // ...so a machine write still holding the pre-edit revision must be rejected, not silently
+    // overwrite the human's change.
+    const conflict = saveCatalogWithPrecondition(
+      cms,
+      'volt-ui',
+      'en',
+      { common: { save: 'Stale machine write' } },
+      { ifMatch: initial.revision },
+    );
+
+    await expect(conflict).rejects.toBeInstanceOf(CatalogRevisionConflictError);
+    await expect(conflict).rejects.toMatchObject({
+      currentRevision: humanEdit.revision,
+    });
+
+    const preserved = await getCatalog(cms, 'volt-ui', 'en');
+    expect(preserved.content).toEqual({ common: { save: 'Human edit' } });
+    expect(preserved.revision).toBe(humanEdit.revision);
   });
 });

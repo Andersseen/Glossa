@@ -44,9 +44,27 @@ export async function getAuthRuntimeForEvent(
   return runtime;
 }
 
+/**
+ * The human-route auth boundary every `/api/projects/*` route calls through. Explicitly
+ * rejects a machine principal (`role: 'machine'`) the same way an invalid/absent credential is
+ * rejected: a project access token authenticates through this exact `CompositeAuthAdapter`
+ * (nothing here recognizes its shape as "different"), but human routes take their project from
+ * the URL, not from token metadata — letting a machine token pass here would let *any* project's
+ * token read (or, via `requireWriteUser`, write) *any other* project's data over the human
+ * surface, defeating the project isolation the machine API enforces via `metadata.projectId`.
+ * Machine credentials work only through `/api/machine/v1/*` (`requireProjectMachineContext`).
+ */
 export async function requireUser(event: H3Event): Promise<AuthenticatedUser> {
   const runtime = await getAuthRuntimeForEvent(event);
-  return runtime.adapters.auth.requireAuth(toHeaderOnlyRequest(event));
+  const user = await runtime.adapters.auth.requireAuth(
+    toHeaderOnlyRequest(event),
+  );
+
+  if (user.role === 'machine') {
+    throw new ForgeAuthError('Unauthorized', 'unauthorized');
+  }
+
+  return user;
 }
 
 export async function requireWriteUser(
@@ -56,6 +74,33 @@ export async function requireWriteUser(
   const user = await requireUser(event);
 
   if (!WRITE_ROLES.includes(user.role as GlossaRole)) {
+    throw new AccessDeniedError('Forbidden');
+  }
+
+  return user;
+}
+
+/**
+ * Only `admin` may manage project access tokens (create/list/revoke/delete) — a stricter gate
+ * than `requireWriteUser`'s admin-or-editor. A machine principal (`role: 'machine'`) is never an
+ * admin, so this also blocks a token from being used to mint or manage other tokens. For mutating
+ * routes (create/revoke/delete); GET routes use `requireAdminReadUser`, which skips the
+ * same-origin CSRF check that only applies to state-changing requests.
+ */
+export async function requireAdminUser(
+  event: H3Event,
+): Promise<AuthenticatedUser> {
+  assertSameOriginMutation(event);
+  return requireAdminReadUser(event);
+}
+
+/** Admin-only read access (token listing) — see `requireAdminUser` for the mutation-side gate. */
+export async function requireAdminReadUser(
+  event: H3Event,
+): Promise<AuthenticatedUser> {
+  const user = await requireUser(event);
+
+  if (user.role !== 'admin') {
     throw new AccessDeniedError('Forbidden');
   }
 
@@ -211,7 +256,11 @@ function assertSameOriginMutation(event: H3Event): void {
   assertCsrfSafe(toHeaderOnlyRequest(event));
 }
 
-function toHeaderOnlyRequest(event: H3Event): Request {
+/**
+ * Builds a headers-only `Request` for `AuthAdapter` calls — never touches the body stream, so it
+ * is always safe to call before (or instead of) `readBody`/`toWebRequest` on the same event.
+ */
+export function toHeaderOnlyRequest(event: H3Event): Request {
   const headers = new Headers();
 
   for (const [key, value] of Object.entries(getRequestHeaders(event))) {

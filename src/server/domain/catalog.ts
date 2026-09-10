@@ -7,6 +7,8 @@ export type CatalogRecord = {
   locale: string;
   namespace: string;
   content: CatalogContent;
+  revision: string;
+  updatedAt: string;
 };
 
 export type StoredCatalogRecord = {
@@ -14,6 +16,8 @@ export type StoredCatalogRecord = {
   locale: unknown;
   namespace?: unknown;
   content: unknown;
+  revision?: unknown;
+  updatedAt?: unknown;
 };
 
 export class CatalogValidationError extends Error {
@@ -44,6 +48,11 @@ export function toCatalogRecord(record: StoredCatalogRecord): CatalogRecord {
         ? record.namespace
         : DEFAULT_CATALOG_NAMESPACE,
     content: validateCatalogContent(record.content),
+    revision: requireString(record.revision, 'Catalog revision is required.'),
+    updatedAt: requireString(
+      record.updatedAt,
+      'Catalog updatedAt is required.',
+    ),
   };
 }
 
