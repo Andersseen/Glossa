@@ -5,6 +5,9 @@ project, read its translation catalogs, and update them — without a human brow
 It is a deliberately separate, small surface from the human UI's own `/api/projects/*`
 routes: Glossa owns this contract, backed by its own services, not generic ForgeCMS CRUD.
 
+The same project access token also authenticates Glossa's [MCP server](./MCP.md), and
+translation JSON can be served publicly (no token at all) via [Public Delivery](./PUBLIC_DELIVERY.md).
+
 ## Authentication
 
 A project access token is created by an `admin` from the project's **Access tokens**
@@ -205,12 +208,11 @@ environment/secret, not a committed file. This file is not required by the machi
 itself (which only needs `GLOSSA_URL` + `GLOSSA_TOKEN`), and this milestone does not ship a
 parser or CLI for it — see Non-goals below.
 
-## Non-goals (this milestone)
+## Non-goals
 
 The machine API and project access tokens are the primitive; the following are intentionally
-not built yet:
+not built:
 
-- An MCP server or any Claude/Codex/Agentyx-specific integration.
 - A `glossa` CLI (`pull`/`push`/`login`).
 - Filesystem synchronization or a GitHub App/automatic commits.
 - Completeness, missing-key, or diff analysis.

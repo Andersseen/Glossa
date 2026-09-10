@@ -15,6 +15,7 @@ import { AuthClient } from '../../auth/auth-client';
 import { AppShell } from '../../layout/app-shell';
 import { PageHeader } from '../../layout/page-header';
 import { AccessTokensPanel } from './access-tokens-panel';
+import { DeliveryPanel, type DeliveryProject } from './delivery-panel';
 import { UiBadge } from '../../ui/badge';
 import {
   UiBreadcrumbItem,
@@ -40,6 +41,7 @@ type Project = {
   slug: string;
   sourceLocale: string;
   locales: string[];
+  publicDelivery: boolean;
 };
 
 type Catalog = {
@@ -51,6 +53,7 @@ type Catalog = {
   imports: [
     AccessTokensPanel,
     AppShell,
+    DeliveryPanel,
     PageHeader,
     RouterLink,
     LmnDocumentTextIcon,
@@ -123,6 +126,7 @@ type Catalog = {
               Translations
             </ui-tabs-trigger>
             <ui-tabs-trigger value="tokens">Access tokens</ui-tabs-trigger>
+            <ui-tabs-trigger value="delivery">Delivery</ui-tabs-trigger>
           </ui-tabs-list>
 
           <ui-tabs-content value="overview" class="mt-8">
@@ -195,6 +199,14 @@ type Catalog = {
           <ui-tabs-content value="tokens" class="mt-8">
             <app-access-tokens-panel [projectSlug]="project.slug" />
           </ui-tabs-content>
+
+          <ui-tabs-content value="delivery" class="mt-8">
+            <app-delivery-panel
+              [projectSlug]="project.slug"
+              [project]="project"
+              (projectUpdated)="onProjectUpdated($event)"
+            />
+          </ui-tabs-content>
         </ui-tabs>
       }
     </app-shell>
@@ -231,6 +243,14 @@ export default class ProjectDetailPage {
 
   constructor() {
     void this.load();
+  }
+
+  protected onProjectUpdated(updated: DeliveryProject): void {
+    const current = this.project();
+
+    if (current) {
+      this.project.set({ ...current, ...updated });
+    }
   }
 
   private async load(): Promise<void> {

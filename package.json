@@ -42,6 +42,8 @@
     "@forge-cms/db": "0.4.0",
     "@forge-cms/runtime": "0.4.0",
     "@forge-cms/storage": "0.4.0",
+    "@modelcontextprotocol/core": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
     "@tailwindcss/vite": "^4.1.4",
     "angular-movement": "^0.8.0",
     "class-variance-authority": "^0.7.1",
@@ -58,7 +60,8 @@
     "rxjs": "~7.8.0",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.1.4",
-    "tslib": "^2.3.0"
+    "tslib": "^2.3.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@analogjs/platform": "^2.7.0",
@@ -70,6 +73,7 @@
     "@angular/compiler-cli": "^22.0.0",
     "@eslint/js": "^9.39.2",
     "@floating-ui/dom": "^1.7.4",
+    "@modelcontextprotocol/client": "^2.0.0",
     "@playwright/test": "^1.62.1",
     "@testing-library/angular": "^19.4.2",
     "@types/node": "^24.10.1",

@@ -4,6 +4,7 @@ export type Project = {
   slug: string;
   sourceLocale: string;
   locales: string[];
+  publicDelivery: boolean;
 };
 
 export type ProjectInput = {
@@ -11,6 +12,7 @@ export type ProjectInput = {
   slug?: unknown;
   sourceLocale?: unknown;
   locales?: unknown;
+  publicDelivery?: unknown;
 };
 
 export type ProjectRecord = {
@@ -19,6 +21,7 @@ export type ProjectRecord = {
   slug: unknown;
   sourceLocale: unknown;
   locales: unknown;
+  publicDelivery?: unknown;
 };
 
 export class ProjectValidationError extends Error {
@@ -70,6 +73,7 @@ export function validateProjectInput(input: ProjectInput): Omit<Project, 'id'> {
     slug,
     sourceLocale,
     locales,
+    publicDelivery: toBooleanFlag(input.publicDelivery, false),
   };
 }
 
@@ -82,6 +86,7 @@ export function mergeProjectInput(
     slug: input.slug ?? current.slug,
     sourceLocale: input.sourceLocale ?? current.sourceLocale,
     locales: input.locales ?? current.locales,
+    publicDelivery: input.publicDelivery ?? current.publicDelivery,
   });
 }
 
@@ -95,6 +100,10 @@ export function toProject(record: ProjectRecord): Project {
       'Source locale is required.',
     ),
     locales: normalizeLocales(record.locales),
+    // Existing D1 rows predate this field and have no stored value — treated as
+    // "not enabled" rather than a validation failure (see the field's schema
+    // definition, which is deliberately not `required` for the same reason).
+    publicDelivery: toBooleanFlag(record.publicDelivery, false),
   };
 }
 
@@ -118,4 +127,17 @@ function validateLocale(locale: string, message: string): void {
   if (!LOCALE_PATTERN.test(locale)) {
     throw new ProjectValidationError(message);
   }
+}
+
+/** Lenient boolean coercion for a flag that may be absent (pre-existing rows) or stored as `0`/`1`. */
+function toBooleanFlag(value: unknown, fallback: boolean): boolean {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (value === 0 || value === 1) {
+    return value === 1;
+  }
+
+  return fallback;
 }

@@ -14,7 +14,20 @@ describe('project domain validation', () => {
       slug: 'marketing-site',
       sourceLocale: 'en',
       locales: ['en', 'es'],
+      publicDelivery: false,
     });
+  });
+
+  it('accepts an explicit publicDelivery flag', () => {
+    expect(
+      validateProjectInput({
+        name: 'Marketing Site',
+        slug: 'marketing-site',
+        sourceLocale: 'en',
+        locales: ['en'],
+        publicDelivery: true,
+      }),
+    ).toMatchObject({ publicDelivery: true });
   });
 
   it('rejects invalid slugs', () => {
@@ -59,6 +72,7 @@ describe('project domain validation', () => {
           slug: 'marketing-site',
           sourceLocale: 'en',
           locales: ['en', 'es'],
+          publicDelivery: true,
         },
         { name: 'Docs Site' },
       ),
@@ -67,6 +81,8 @@ describe('project domain validation', () => {
       slug: 'marketing-site',
       sourceLocale: 'en',
       locales: ['en', 'es'],
+      // Omitted from the patch — the existing value carries forward untouched.
+      publicDelivery: true,
     });
   });
 

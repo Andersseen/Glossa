@@ -22,6 +22,22 @@ Glossa is a single Analog.js application backed by ForgeCMS 0.4.x public npm pac
 - Project isolation is structural, not just checked: the machine API namespace carries no
   project selector at all — the token's own metadata is the only source of project identity
   for every machine route.
+- Public runtime catalog delivery: an opt-in per-project `publicDelivery` flag (default
+  `false`) gates unauthenticated `GET /i18n/:slug/manifest.json` and
+  `GET /i18n/:slug/:locale.json`, returning raw catalog JSON (no envelope),
+  `Access-Control-Allow-Origin: *`, `ETag`/conditional-GET, and a Cloudflare `caches.default`
+  edge cache bounded to 30 seconds — explicitly purged on a `publicDelivery`/`locales`
+  change so a disabled project stops being served immediately rather than waiting out the
+  TTL. Disabled, unknown, and not-yet-created all return an identical `404`. See
+  `docs/PUBLIC_DELIVERY.md`.
+- Remote MCP server at `POST/GET/DELETE /mcp` (`@modelcontextprotocol/server` v2, Streamable
+  HTTP, stateless — a fresh `McpServer` per request), authenticated with the same project
+  access token as the machine API (`requireProjectMachineContext`, reused as-is — no
+  MCP-specific auth path). Six tools: `get_project`, `list_catalogs`, `get_catalog`,
+  `get_translation`, `set_translation`, `get_delivery_urls`, scoped by the same
+  `catalog:read`/`catalog:write`. `set_translation` reuses the Machine API's
+  `saveCatalogWithPrecondition` (`expectedRevision` → `If-Match`), so a stale agent write is
+  rejected exactly like a stale machine `PUT`. See `docs/MCP.md`.
 
 - Project CRUD with required name, unique slug, source locale, and locale list validation.
 - JSON catalog list/get/save/delete for the default internal namespace.
@@ -55,10 +71,23 @@ Project access tokens persist in Forge's own internal `_forge_api_keys` collecti
 
 ## Deferred
 
-Import/export, completeness and diff analysis, AI translation, translation memory, GitHub integration, teams, billing, OAuth, comments, review workflow, namespaces UI, distribution APIs, MCP/agent tooling, and a CLI/repository-sync layer are intentionally deferred.
+Import/export, completeness and diff analysis, AI translation, translation memory, GitHub integration, teams, billing, OAuth, comments, review workflow, namespaces UI, and a CLI/repository-sync layer are intentionally deferred.
+
+## Testing
+
+Every Vitest spec — including the new public-delivery and MCP coverage — runs against Forge's
+`InMemoryDatabaseAdapter`, and Playwright's `webServer` is plain `pnpm dev` (also in-memory);
+there is no `wrangler`-D1-backed or `vitest-pool-workers` test runtime in this repository.
+Public delivery and MCP were additionally verified manually against a real local D1 database
+(`wrangler pages dev`), including the full agent journey (`initialize` → `tools/list` →
+`get_translation` → `set_translation` → public URL reflects the write → a stale
+`expectedRevision` is rejected), but that path is not part of the automated suite. Building a
+real-D1 Vitest harness is future infrastructure work, not something this milestone adds.
 
 ## Next Milestone
 
-Completeness / Diff / Missing Keys.
+Volt UI: first real consumer / dogfood — point its runtime i18n loader at a public Glossa
+delivery URL and its AI agents at the Glossa MCP endpoint, and see whether that integration
+genuinely stays as small as this milestone was designed to make it.
 
-Later: Glossa MCP / agent integration. Later still: CLI / repository pull-push synchronization.
+Later: Completeness / Diff / Missing Keys. Later still: CLI / repository pull-push synchronization.
