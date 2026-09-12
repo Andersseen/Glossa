@@ -15,6 +15,7 @@ import { AuthClient } from '../../auth/auth-client';
 import { AppShell } from '../../layout/app-shell';
 import { PageHeader } from '../../layout/page-header';
 import { AccessTokensPanel } from './access-tokens-panel';
+import { CatalogImportPanel } from './catalog-import/catalog-import-panel';
 import { DeliveryPanel, type DeliveryProject } from './delivery-panel';
 import { UiBadge } from '../../ui/badge';
 import {
@@ -53,6 +54,7 @@ type Catalog = {
   imports: [
     AccessTokensPanel,
     AppShell,
+    CatalogImportPanel,
     DeliveryPanel,
     PageHeader,
     RouterLink,
@@ -152,7 +154,16 @@ type Catalog = {
             </section>
 
             <section class="mt-10" [move]="'fade-up'">
-              <h2 class="text-xl font-semibold">Catalogs</h2>
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <h2 class="text-xl font-semibold">Catalogs</h2>
+                @if (canWrite()) {
+                  <app-catalog-import-panel
+                    [projectSlug]="project.slug"
+                    [project]="project"
+                    (imported)="reloadCatalogs()"
+                  />
+                }
+              </div>
               <ui-separator class="my-4" />
               <div class="border-border overflow-hidden rounded-lg border">
                 @for (catalog of catalogRows(); track catalog.locale) {
@@ -240,6 +251,9 @@ export default class ProjectDetailPage {
       ready: readyLocales.has(locale),
     }));
   });
+  protected readonly canWrite = computed(() =>
+    ['admin', 'editor'].includes(this.auth.user()?.role ?? ''),
+  );
 
   constructor() {
     void this.load();
@@ -250,6 +264,25 @@ export default class ProjectDetailPage {
 
     if (current) {
       this.project.set({ ...current, ...updated });
+    }
+  }
+
+  protected async reloadCatalogs(): Promise<void> {
+    const project = this.project();
+
+    if (!project) {
+      return;
+    }
+
+    try {
+      const response = await firstValueFrom(
+        this.http.get<{ catalogs: Catalog[] }>(
+          `/api/projects/${encodeURIComponent(project.slug)}/catalogs`,
+        ),
+      );
+      this.catalogs.set(response.catalogs);
+    } catch {
+      // The catalog list keeps its last known state; the user can reload the page if needed.
     }
   }
 

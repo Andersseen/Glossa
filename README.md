@@ -7,10 +7,10 @@ authenticated with the same access token as the machine catalog API.
 
 The project is in an early production-foundation stage. The current repository implements
 authenticated project CRUD, project locale configuration, JSON catalog editing for the
-default namespace, ForgeCMS-backed persistence, a Cloudflare D1 production target, project
-access tokens, a machine catalog API with optimistic-concurrency writes, public runtime
-catalog delivery, and a remote MCP server. It does not yet implement completeness analysis,
-AI translation, import/export, or a CLI.
+default namespace, existing-catalog import for onboarding, ForgeCMS-backed persistence, a
+Cloudflare D1 production target, project access tokens, a machine catalog API with
+optimistic-concurrency writes, public runtime catalog delivery, and a remote MCP server. It
+does not yet implement completeness analysis, AI translation, catalog export, or a CLI.
 
 ## Architecture
 
@@ -47,6 +47,36 @@ cacheable JSON at stable URLs (`/i18n/:slug/manifest.json`, `/i18n/:slug/:locale
 remote **MCP server** at `/mcp`, giving an AI coding agent `get_project`/`list_catalogs`/
 `get_catalog`/`get_translation`/`set_translation`/`get_delivery_urls` tools without a
 consumer repository implementing any protocol glue — see `docs/MCP.md`.
+
+## Migrating an existing project
+
+An application that already has locale JSON files (`en.json`, `es.json`, `uk.json`, ...)
+does not need a script, a CLI, or a Glossa-specific HTTP client to move them into Glossa. The
+whole migration happens in the Glossa web UI:
+
+1. **Create a project** and configure its source locale and locale list to match the files
+   you have.
+2. Open the project's **Catalogs** tab and click **Import catalogs**.
+3. Drag and drop (or pick) the existing JSON files. The locale is inferred from each
+   filename (`en.json` → `en`) and matched against the project's configured locales; an
+   unrecognized or non-standard filename can be mapped manually, but never to an
+   unconfigured or already-used locale.
+4. **Preview** the batch — file, locale, message count, and whether it is a new catalog or
+   would replace one that already exists. Replacing an existing catalog always requires
+   explicit, per-file confirmation; nothing is written until every file in the batch passes
+   validation.
+5. **Import**. Each catalog is written through the same `CatalogService` path (and the same
+   revision/optimistic-concurrency model) as a normal editor save or a machine API write —
+   there is no separate import storage or a second concurrency model, and no publish step:
+   the imported content is immediately visible in the Catalogs UI, the machine API, MCP, and
+   (if enabled) public delivery.
+6. Enable **Public Delivery** if the consuming application should read Glossa at runtime,
+   and create a project **access token** under **Access tokens** if agents or CI need the
+   machine API or MCP.
+
+Nested JSON structure and any MessageFormat syntax in the values (`{$count}`,
+`{$year :number useGrouping=never}`, ...) are preserved exactly — import is JSON ingestion,
+never translation or reformatting.
 
 ## Stack
 
