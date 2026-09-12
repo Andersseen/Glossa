@@ -41,6 +41,20 @@ Glossa is a single Analog.js application backed by ForgeCMS 0.4.x public npm pac
 
 - Project CRUD with required name, unique slug, source locale, and locale list validation.
 - JSON catalog list/get/save/delete for the default internal namespace.
+- Existing catalog import: `POST /api/projects/:slug/catalogs/import/preview` (read-only) and
+  `POST /api/projects/:slug/catalogs/import` (commit) let a project onboard the JSON locale
+  files it already has, from the Catalogs tab's "Import catalogs" panel — multi-file
+  drag-and-drop or file picker, filename-based locale inference (`en.json` → `en`) matched
+  against the project's configured locales, with manual per-file correction and no silent
+  creation of an unconfigured locale. The whole batch is preflighted (locale configured,
+  locale not duplicated within the batch, catalog shape valid via the same
+  `validateCatalogContent` the editor and machine API use) before anything is written; an
+  existing catalog is never replaced without explicit per-file confirmation, enforced with
+  the same revision/`If-Match` precondition `saveCatalogWithPrecondition` already provides —
+  no second concurrency model. Every imported catalog is written through `CatalogService`,
+  so it is indistinguishable from an editor or machine write: it appears in the Catalogs UI,
+  the machine API, MCP, and (if `publicDelivery` is on) public delivery immediately, with no
+  publish/sync step. See the "Migrating an existing project" section in `README.md`.
 - ForgeCMS collections: `users`, `projects`, `catalogs`, `external_identities`, `sso_sessions`.
 - Primary interactive auth: DevAuth OAuth 2.1/OIDC SSO (Authorization Code + PKCE S256,
   server-side code exchange, identity from `userinfo`).
@@ -71,23 +85,36 @@ Project access tokens persist in Forge's own internal `_forge_api_keys` collecti
 
 ## Deferred
 
-Import/export, completeness and diff analysis, AI translation, translation memory, GitHub integration, teams, billing, OAuth, comments, review workflow, namespaces UI, and a CLI/repository-sync layer are intentionally deferred.
+Catalog export, completeness and diff analysis, AI translation, translation memory, GitHub integration, teams, billing, OAuth, comments, review workflow, namespaces UI, and a CLI/repository-sync layer are intentionally deferred.
 
 ## Testing
 
-Every Vitest spec — including the new public-delivery and MCP coverage — runs against Forge's
-`InMemoryDatabaseAdapter`, and Playwright's `webServer` is plain `pnpm dev` (also in-memory);
-there is no `wrangler`-D1-backed or `vitest-pool-workers` test runtime in this repository.
-Public delivery and MCP were additionally verified manually against a real local D1 database
-(`wrangler pages dev`), including the full agent journey (`initialize` → `tools/list` →
-`get_translation` → `set_translation` → public URL reflects the write → a stale
-`expectedRevision` is rejected), but that path is not part of the automated suite. Building a
-real-D1 Vitest harness is future infrastructure work, not something this milestone adds.
+Every Vitest spec — including catalog import and its public-delivery/MCP/machine-API
+integration coverage — runs against Forge's `InMemoryDatabaseAdapter`, and Playwright's
+`webServer` is plain `pnpm dev` (also in-memory); there is no `wrangler`-D1-backed or
+`vitest-pool-workers` test runtime in this repository. Public delivery and MCP were
+previously verified manually against a real local D1 database (`wrangler pages dev`),
+including the full agent journey. Catalog import was **not** re-verified against a real D1
+database in this milestone: `wrangler.jsonc` binds the one real D1 database this repository
+has (`glossa`, a production id, not a disposable/local-only one), and `wrangler pages dev`
+against it would write test projects/catalogs into shared production data; `.dev.vars` also
+has no `BOOTSTRAP_ADMIN_KEY`/`AUTH_SECRET`, and the only interactive sign-in path
+(`DEV_AUTH_ISSUER=https://auth-devflare.andersseen.dev`) is a real external identity
+provider a human would need to complete. If real-D1 verification of import is wanted, run
+`pnpm exec wrangler pages dev dist/analog/public` against a disposable D1 database (or the
+production one, deliberately, with a throwaway test project) and repeat the same manual
+journey as the prior public-delivery/MCP milestone: sign in, create a project, import a
+small catalog from the UI, then confirm it through `/i18n/:slug/:locale.json`, the machine
+API, and MCP. Building a real-D1 Vitest harness remains future infrastructure work.
 
 ## Next Milestone
 
-Volt UI: first real consumer / dogfood — point its runtime i18n loader at a public Glossa
-delivery URL and its AI agents at the Glossa MCP endpoint, and see whether that integration
-genuinely stays as small as this milestone was designed to make it.
+Volt UI: first real consumer / dogfood. With existing-catalog import now in place, an
+existing project's `en.json`/`es.json`/`uk.json` no longer need a script to reach Glossa —
+Volt UI itself should only need an Etyma upgrade, `defineRemoteI18n`/`createHttpMessageLoader`,
+and a Glossa base URL/token, not a migration step of its own. Point its runtime i18n loader
+at a public Glossa delivery URL and its AI agents at the Glossa MCP endpoint, and see whether
+that integration genuinely stays as small as this milestone was designed to make it.
 
-Later: Completeness / Diff / Missing Keys. Later still: CLI / repository pull-push synchronization.
+Later: catalog export. Later still: completeness / diff / missing keys, CLI / repository
+pull-push synchronization.

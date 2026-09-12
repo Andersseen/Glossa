@@ -39,6 +39,17 @@ export function validateCatalogContent(value: unknown): CatalogContent {
   return validateCatalogNode(value, '');
 }
 
+/** Counts leaf translation values, not container objects — the "N messages" figure shown in the UI. */
+export function countCatalogMessages(content: CatalogContent): number {
+  let count = 0;
+
+  for (const value of Object.values(content)) {
+    count += typeof value === 'string' ? 1 : countCatalogMessages(value);
+  }
+
+  return count;
+}
+
 export function toCatalogRecord(record: StoredCatalogRecord): CatalogRecord {
   return {
     project: requireString(record.project, 'Catalog project is required.'),

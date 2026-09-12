@@ -13,6 +13,7 @@ import {
 } from '../cms/runtime';
 import { getPublicCatalog } from '../delivery/delivery.service';
 import type { Project } from '../domain/project';
+import { commitCatalogImport } from '../services/catalog-import.service';
 import { getCatalog, saveCatalog } from '../services/catalog.service';
 import {
   createProjectToken,
@@ -619,5 +620,34 @@ describe('MCP does not expose credentials', () => {
       const raw = JSON.stringify(result);
       expect(raw).not.toContain(secret);
     }
+  });
+});
+
+describe('MCP sees imported catalog content immediately', () => {
+  it('reflects an imported catalog with no additional sync step', async () => {
+    const cms = await getCmsRuntime();
+    const project = await createProject(cms, {
+      name: 'Import MCP Project',
+      slug: 'import-mcp-project',
+      sourceLocale: 'en',
+      locales: ['en'],
+    });
+    const { secret } = await createProjectToken(cms, project, {
+      name: 'Agent',
+      scopes: ['catalog:read'],
+    });
+
+    const result = await commitCatalogImport(cms, project.slug, {
+      catalogs: [{ locale: 'en', content: { nav: { home: 'Home' } } }],
+    });
+    expect(result.imported).toBe(true);
+
+    const client = await connectClient(secret);
+    const read = await client.callTool({
+      name: 'get_translation',
+      arguments: { locale: 'en', key: 'nav.home' },
+    });
+
+    expect(textOf(read)['value']).toBe('Home');
   });
 });
