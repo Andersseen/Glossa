@@ -18,6 +18,8 @@ import { UiInput } from '../../../ui/input';
 import { UiSkeleton } from '../../../ui/skeleton';
 import { cn } from '../../../ui/utils';
 import { AddTranslationPanel } from './add-translation-panel';
+import { DeleteKeyPanel } from './delete-key-panel';
+import { RenameKeyPanel } from './rename-key-panel';
 import { TranslationKeyEditor } from './translation-key-editor';
 import type {
   TranslationCatalogState,
@@ -48,6 +50,8 @@ const FILTERS: { value: TranslationFilter; label: string }[] = [
   selector: 'app-translation-workspace',
   imports: [
     AddTranslationPanel,
+    DeleteKeyPanel,
+    RenameKeyPanel,
     RouterLink,
     TranslationKeyEditor,
     UiBadge,
@@ -227,12 +231,38 @@ const FILTERS: { value: TranslationFilter; label: string }[] = [
                 [saved]="justSaved()"
                 [error]="saveError()"
                 (save)="save($event)"
+                (dirtyChange)="keyDirty.set($event)"
               />
               @if (conflicted()) {
                 <div class="mt-4">
                   <ui-button type="button" variant="outline" (click)="reload()">
                     Reload translations
                   </ui-button>
+                </div>
+              }
+              @if (canWrite()) {
+                <div
+                  class="border-border mt-6 flex flex-wrap items-center gap-3 border-t pt-4"
+                >
+                  <app-rename-key-panel
+                    [projectSlug]="project.slug"
+                    [entry]="entry"
+                    [catalogs]="catalogs()"
+                    [disabled]="keyDirty()"
+                    (renamed)="onRenamed($event)"
+                  />
+                  <app-delete-key-panel
+                    [projectSlug]="project.slug"
+                    [entry]="entry"
+                    [catalogs]="catalogs()"
+                    [disabled]="keyDirty()"
+                    (deleted)="onDeleted()"
+                  />
+                  @if (keyDirty()) {
+                    <span class="text-muted-foreground text-xs">
+                      Save or discard your changes to rename or delete this key.
+                    </span>
+                  }
                 </div>
               }
             } @else {
@@ -272,6 +302,9 @@ export class TranslationWorkspace implements OnInit {
   protected readonly saveError = signal('');
   protected readonly justSaved = signal(false);
   protected readonly conflicted = signal(false);
+
+  /** Unsaved value edits on the selected key disable Rename/Delete rather than risk discarding them. */
+  protected readonly keyDirty = signal(false);
 
   /** Derived locally so every count stays correct after a save or a create, with no re-fetch. */
   protected readonly summary = computed(() => {
@@ -423,6 +456,22 @@ export class TranslationWorkspace implements OnInit {
     this.select(entry.key);
     this.justSaved.set(true);
     setTimeout(() => this.justSaved.set(false), 2000);
+  }
+
+  /**
+   * Reloads the whole workspace rather than patching local state — a rename/delete already
+   * confirmed the write server-side, and re-fetching is the simplest way to get every locale's
+   * fresh revision without duplicating the read logic `load()` already has. `load()` does not
+   * touch `loading`, so this stays a quiet refresh rather than a full skeleton flash.
+   */
+  protected async onRenamed(newKey: string): Promise<void> {
+    await this.load();
+    this.select(newKey);
+  }
+
+  /** `load()` already falls back to the first remaining key (or none) when the selection is gone. */
+  protected async onDeleted(): Promise<void> {
+    await this.load();
   }
 
   private applyWrite(response: TranslationWriteResponse): void {

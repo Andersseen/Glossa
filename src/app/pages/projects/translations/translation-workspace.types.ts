@@ -70,3 +70,21 @@ export type TranslationFieldChange = {
 };
 
 export type TranslationFilter = 'all' | 'missing' | 'complete';
+
+export type TranslationLifecycleWriteResult =
+  | { locale: string; status: 'saved'; revision: string }
+  | {
+      locale: string;
+      status: 'failed';
+      error: { code: string; message: string };
+    };
+
+/** The wire shape of `/api/projects/:slug/translations/rename` and `.../delete`. */
+export type TranslationLifecycleResponse = {
+  operation: 'rename' | 'delete';
+  key: string;
+  newKey?: string;
+  saved: boolean;
+  results: TranslationLifecycleWriteResult[];
+  catalogs: Record<string, TranslationCatalogState>;
+};

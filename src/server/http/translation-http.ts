@@ -1,5 +1,12 @@
 import { setResponseStatus, type H3Event } from 'h3';
 
+import { TranslationKeyCollisionError } from '../domain/translation-path';
+import {
+  isTranslationLifecycleServiceError,
+  TranslationLifecycleConflictError,
+  TranslationNotFoundError,
+  type TranslationLifecycleResponse,
+} from '../services/translation-lifecycle.service';
 import {
   TranslationKeyExistsError,
   isTranslationServiceError,
@@ -43,5 +50,49 @@ export function setTranslationWriteStatus(
   createdStatus = 200,
 ): TranslationWriteResponse {
   setResponseStatus(event, response.saved ? createdStatus : 409);
+  return response;
+}
+
+/**
+ * Rename/delete are preflighted end-to-end before any write (see `translation-lifecycle.service`),
+ * so unlike the value-edit PATCH there is no partial-success shape to report through a `200` —
+ * every failure here is a request-level refusal: an invalid or colliding key, a missing source
+ * key, or a stale revision on any configured locale.
+ */
+export function sendTranslationLifecycleError(
+  event: H3Event,
+  error: unknown,
+): TranslationErrorBody {
+  if (error instanceof TranslationNotFoundError) {
+    setResponseStatus(event, 404);
+    return { error: { code: error.code, message: error.message } };
+  }
+
+  if (
+    error instanceof TranslationKeyCollisionError ||
+    error instanceof TranslationLifecycleConflictError
+  ) {
+    setResponseStatus(event, 409);
+    return { error: { code: error.code, message: error.message } };
+  }
+
+  if (isTranslationLifecycleServiceError(error)) {
+    setResponseStatus(event, 400);
+    return { error: { code: error.code, message: error.message } };
+  }
+
+  return sendTranslationError(event, error);
+}
+
+/**
+ * `saved` can still be `false` after a clean preflight if an infrastructure write genuinely failed
+ * in that narrow window (see `writeAcrossCatalogs` — no rollback is invented); `409` tells the
+ * client to reload rather than trust a partially applied rename/delete.
+ */
+export function setTranslationLifecycleStatus(
+  event: H3Event,
+  response: TranslationLifecycleResponse,
+): TranslationLifecycleResponse {
+  setResponseStatus(event, response.saved ? 200 : 409);
   return response;
 }

@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   input,
   linkedSignal,
   output,
@@ -120,6 +121,8 @@ export class TranslationKeyEditor {
   readonly error = input('');
 
   readonly save = output<TranslationFieldChange[]>();
+  /** Lets the workspace disable Rename/Delete while an edit is unsaved, without lifting draft state up. */
+  readonly dirtyChange = output<boolean>();
 
   /**
    * Re-seeded whenever the selected key (or the entry the server just wrote back) changes, so
@@ -127,6 +130,10 @@ export class TranslationKeyEditor {
    * fields matching what was actually stored.
    */
   private readonly drafts = linkedSignal(() => this.originalValues());
+
+  constructor() {
+    effect(() => this.dirtyChange.emit(this.dirtyLocales().length > 0));
+  }
 
   protected readonly fields = computed<LocaleField[]>(() => {
     const originals = this.originalValues();

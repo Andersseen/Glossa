@@ -48,8 +48,9 @@ A project explicitly opted into **public delivery** exposes its catalogs as unau
 cacheable JSON at stable URLs (`/i18n/:slug/manifest.json`, `/i18n/:slug/:locale.json`) — see
 `docs/PUBLIC_DELIVERY.md`. The same project access token above also authenticates Glossa's
 remote **MCP server** at `/mcp`, giving an AI coding agent `get_project`/`list_catalogs`/
-`get_catalog`/`get_translation`/`set_translation`/`get_delivery_urls` tools without a
-consumer repository implementing any protocol glue — see `docs/MCP.md`.
+`get_catalog`/`get_translation`/`set_translation`/`rename_translation`/`delete_translation`/
+`get_delivery_urls` tools without a consumer repository implementing any protocol glue — see
+`docs/MCP.md`.
 
 ## Editing translations
 
@@ -80,6 +81,30 @@ is stored exactly as typed and never reformatted.
 The per-locale **raw JSON editor** (`/projects/:slug/catalogs/:locale`) is still there,
 clearly marked as advanced — for bulk edits, cleanup, and anything the key-centric workspace
 deliberately does not cover.
+
+The Translations tab also supports **create, edit, rename and delete** — the full lifecycle of
+a key — without ever opening JSON. **Rename key** and **Delete key** on the selected key act on
+the logical key across every configured locale in one operation, not one locale at a time:
+
+- **Rename** moves the value at the old path to the new path in every locale that has it,
+  preserved exactly (including MessageFormat syntax), prunes any old parent group left empty,
+  and leaves a locale that never had the key still without it. It refuses the whole rename —
+  writing nothing — if the new key already exists in any configured locale (even one the
+  source locale does not define), if the old key does not exist in the source locale, or if
+  the new key is the same as the old one.
+- **Delete** removes the key from every locale that has it and prunes any parent group left
+  empty; a locale that never had the key is left untouched, not treated as an error.
+
+Both are preflighted end-to-end — every configured locale's revision, plus the rename
+collision check — before any catalog is written, using the revisions the workspace was loaded
+with. If anything has changed since, the whole operation is refused (`409`) rather than
+applying to only some locales, and the UI asks for a reload rather than silently retrying.
+Unsaved edits on the selected key disable Rename/Delete until they are saved, so a destructive
+action never discards them. Both write through the same `CatalogService` path as every other
+change, so they are immediately visible to the raw JSON editor, the machine API, MCP, and (if
+enabled) public delivery — no publish step, no second concurrency model. Renaming or deleting a
+key is a structural, cross-locale change, so it is deliberately a dedicated action, not part of
+the value-edit save.
 
 ## Migrating an existing project
 

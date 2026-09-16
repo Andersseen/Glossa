@@ -211,6 +211,140 @@ test('the raw JSON catalog remains available as the advanced editor', async ({
   ).toBeVisible();
 });
 
+test('an admin renames a key across every locale without opening JSON', async ({
+  page,
+}) => {
+  await signInAsAdmin(page);
+  const slug = await createProject(page, `workspace-rename-${Date.now()}`);
+  await putCatalog(page, slug, 'en', {
+    nav: { home: 'Home', docs: 'Documentation' },
+  });
+  await putCatalog(page, slug, 'es', { nav: { home: 'Inicio' } });
+
+  await openTranslations(page, slug);
+  await page
+    .getByRole('button', { name: 'nav.home Home 2 / 3 Missing' })
+    .click();
+  await page.getByRole('button', { name: 'Rename key' }).click();
+
+  const drawer = page.getByRole('dialog');
+  await expect(
+    drawer.getByRole('heading', { name: 'Rename translation key' }),
+  ).toBeVisible();
+  await expect(drawer.getByText('Current key')).toBeVisible();
+
+  await drawer.getByLabel('New key').fill('navigation.home');
+  await drawer.getByRole('button', { name: 'Rename key' }).click();
+
+  await expect(drawer).toHaveCount(0);
+
+  // The old key is gone, the new one holds the exact preserved values, and it is auto-selected.
+  await expect(page.getByRole('button', { name: 'nav.home Home' })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByRole('button', {
+      name: 'navigation.home Home 2 / 3 Missing',
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'navigation.home' }),
+  ).toBeVisible();
+  await expect(page.getByLabel('English en Source')).toHaveValue('Home');
+  await expect(page.getByLabel('Español es')).toHaveValue('Inicio');
+
+  const stored = await page.request.get(`/api/projects/${slug}/catalogs/en`);
+  expect((await stored.json()).catalog.content).toEqual({
+    nav: { docs: 'Documentation' },
+    navigation: { home: 'Home' },
+  });
+});
+
+test('an admin deletes a key, pruning it from every locale', async ({
+  page,
+}) => {
+  await signInAsAdmin(page);
+  const slug = await createProject(page, `workspace-delete-${Date.now()}`);
+  await putCatalog(page, slug, 'en', {
+    legacy: { banner: { title: 'Old title' } },
+    nav: { home: 'Home' },
+  });
+  await putCatalog(page, slug, 'es', { nav: { home: 'Inicio' } });
+
+  await openTranslations(page, slug);
+  await page
+    .getByRole('button', { name: 'legacy.banner.title Old title' })
+    .click();
+  await page.getByRole('button', { name: 'Delete key' }).click();
+
+  const drawer = page.getByRole('dialog');
+  await expect(
+    drawer.getByRole('heading', { name: 'Delete translation key?' }),
+  ).toBeVisible();
+  await expect(drawer.getByText('legacy.banner.title')).toBeVisible();
+
+  await drawer.getByRole('button', { name: 'Delete translation' }).click();
+  await expect(drawer).toHaveCount(0);
+
+  await expect(
+    page.getByRole('button', { name: 'legacy.banner.title' }),
+  ).toHaveCount(0);
+  await expect(
+    page.locator('dl > div', { has: page.getByText('Keys', { exact: true }) }),
+  ).toContainText('1');
+
+  const stored = await page.request.get(`/api/projects/${slug}/catalogs/en`);
+  expect((await stored.json()).catalog.content).toEqual({
+    nav: { home: 'Home' },
+  });
+});
+
+test('a viewer sees no Rename or Delete actions', async ({ page }) => {
+  await signInAsAdmin(page);
+  const slug = await createProject(
+    page,
+    `workspace-lifecycle-viewer-${Date.now()}`,
+  );
+  await putCatalog(page, slug, 'en', { nav: { home: 'Home' } });
+
+  await setSignedRoleCookie(page, 'viewer');
+  await openTranslations(page, slug);
+
+  await page.getByRole('button', { name: 'nav.home Home' }).click();
+  await expect(page.getByRole('button', { name: 'Rename key' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Delete key' })).toHaveCount(0);
+});
+
+test('a stale workspace shows a conflict instead of silently overwriting a rename', async ({
+  page,
+}) => {
+  await signInAsAdmin(page);
+  const slug = await createProject(
+    page,
+    `workspace-rename-conflict-${Date.now()}`,
+  );
+  await putCatalog(page, slug, 'en', { nav: { home: 'Home' } });
+
+  await openTranslations(page, slug);
+  await page.getByRole('button', { name: 'nav.home Home' }).click();
+
+  // Someone else changes the catalog through the API after this workspace was loaded.
+  await putCatalog(page, slug, 'en', { nav: { home: 'Home changed' } });
+
+  await page.getByRole('button', { name: 'Rename key' }).click();
+  const drawer = page.getByRole('dialog');
+  await drawer.getByLabel('New key').fill('navigation.home');
+  await drawer.getByRole('button', { name: 'Rename key' }).click();
+
+  await expect(drawer.getByText(/changed after you opened/)).toBeVisible();
+  await expect(drawer).toBeVisible();
+
+  const stored = await page.request.get(`/api/projects/${slug}/catalogs/en`);
+  expect((await stored.json()).catalog.content).toEqual({
+    nav: { home: 'Home changed' },
+  });
+});
+
 async function openTranslations(page: Page, slug: string): Promise<void> {
   await page.goto(`/projects/${slug}`);
   await waitForAngular(page);

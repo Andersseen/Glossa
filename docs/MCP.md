@@ -43,14 +43,16 @@ project.
 
 Reuses the Machine API's two scopes — no new ones for MCP:
 
-| Tool                | Requires        |
-| ------------------- | --------------- |
-| `get_project`       | `catalog:read`  |
-| `list_catalogs`     | `catalog:read`  |
-| `get_catalog`       | `catalog:read`  |
-| `get_translation`   | `catalog:read`  |
-| `get_delivery_urls` | `catalog:read`  |
-| `set_translation`   | `catalog:write` |
+| Tool                 | Requires        |
+| -------------------- | --------------- |
+| `get_project`        | `catalog:read`  |
+| `list_catalogs`      | `catalog:read`  |
+| `get_catalog`        | `catalog:read`  |
+| `get_translation`    | `catalog:read`  |
+| `get_delivery_urls`  | `catalog:read`  |
+| `set_translation`    | `catalog:write` |
+| `rename_translation` | `catalog:write` |
+| `delete_translation` | `catalog:write` |
 
 A token created with write access is always issued both scopes, matching the Machine API.
 Calling a tool without the required scope does not close the connection — it returns a tool
@@ -118,6 +120,48 @@ reformatted by Glossa. `expectedRevision` is the concurrency guard:
 A stale write leaves the newer content untouched — re-read and retry deliberately, the same
 contract as the Machine API's `412`.
 
+### `rename_translation`
+
+Input:
+
+```json
+{
+  "key": "nav.home",
+  "newKey": "navigation.home",
+  "expectedRevisions": { "en": "...", "es": "...", "uk": "..." }
+}
+```
+
+Renames one logical key across **every existing catalog** in the project, not one locale at a
+time: the value at `key` moves to `newKey` in every locale that has it, preserved exactly, and
+a locale that never had the key stays without it. `expectedRevisions` must carry the current
+revision of every configured locale that already has a catalog — a locale with no catalog yet
+is simply omitted. List/read tools first, then pass those revisions here.
+
+The whole rename is preflighted before any write:
+
+- Any stale or missing revision for an existing catalog rejects the whole operation with
+  `CATALOG_REVISION_CONFLICT` (including the per-locale `conflicts` it found) — no catalog is
+  written.
+- A `key` that does not exist in the source locale is rejected with `TRANSLATION_NOT_FOUND`.
+- A `newKey` that already exists in **any** configured locale — even a target-only key the
+  source locale does not define — is rejected with `TRANSLATION_KEY_COLLISION`, and nothing is
+  written. Renaming never overwrites an existing value.
+- `newKey` equal to `key` is rejected as an invalid, no-op rename.
+
+Reuses the exact same service the human Translation Workspace's **Rename key** action calls —
+there is one rename implementation, not one per surface.
+
+### `delete_translation`
+
+Input: `{ "key": "legacy.banner.title", "expectedRevisions": { "en": "..." } }`
+
+Deletes one logical key from every existing catalog that has it, pruning any parent group left
+empty; a locale that never had the key is left untouched, not treated as an error. Same
+revision preflight as `rename_translation` (`CATALOG_REVISION_CONFLICT` on any stale/missing
+entry), and `key` must exist in the source locale (`TRANSLATION_NOT_FOUND` otherwise). Reuses
+the same service the Workspace's **Delete key** action calls.
+
 ### `get_delivery_urls`
 
 No arguments. The public [delivery](./PUBLIC_DELIVERY.md) URLs for this project, and whether
@@ -141,11 +185,13 @@ Every failing tool call returns `isError: true` with a small, stable JSON code �
 SQL/Forge error or a stack trace:
 
 `UNAUTHORIZED`, `FORBIDDEN`, `INVALID_SCOPE`, `LOCALE_NOT_CONFIGURED`, `CATALOG_NOT_FOUND`,
-`TRANSLATION_NOT_FOUND`, `CATALOG_REVISION_CONFLICT`, `INVALID_TRANSLATION_KEY`,
-`INVALID_TRANSLATION_VALUE`, `DELIVERY_DISABLED`.
+`TRANSLATION_NOT_FOUND`, `TRANSLATION_KEY_COLLISION`, `CATALOG_REVISION_CONFLICT`,
+`INVALID_TRANSLATION_KEY`, `INVALID_TRANSLATION_VALUE`, `DELIVERY_DISABLED`.
 
-`CATALOG_REVISION_CONFLICT` also carries `currentRevision`, so an agent can re-read and
-retry without a second round trip.
+`CATALOG_REVISION_CONFLICT` carries `currentRevision` for `set_translation`'s single-locale
+conflict, or `conflicts` (locale → current revision) for `rename_translation`/
+`delete_translation`'s project-wide preflight — either way, enough to re-read and retry
+without a second round trip.
 
 ## Client configuration
 
@@ -172,8 +218,10 @@ again after the token is first created.
 
 - No translation-memory or AI translation — `set_translation` writes exactly the value it is
   given.
-- No `delete_translation`/`delete_catalog`/`delete_project` tool — destructive tools are a
-  later, deliberate design.
+- No `delete_catalog`/`delete_project` tool — those remain human/Machine-API-only operations;
+  `rename_translation`/`delete_translation` operate on one key, never a whole catalog.
+- No bulk rename/delete, and no cleanup tool for a target-only key the source locale never
+  defined — both are deliberately deferred.
 - No project/user/token-management tools — token lifecycle stays on the human UI and the
   Machine API.
 - No completeness/missing-key/diff tools yet — those depend on a later Glossa milestone.

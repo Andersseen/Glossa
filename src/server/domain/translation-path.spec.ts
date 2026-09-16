@@ -1,9 +1,13 @@
 import type { CatalogContent } from './catalog';
 import {
+  deleteTranslationValue,
   getTranslationValue,
   InvalidTranslationKeyError,
   parseTranslationKeyPath,
+  pathExists,
+  renameTranslationValue,
   setTranslationValue,
+  TranslationKeyCollisionError,
 } from './translation-path';
 
 describe('parseTranslationKeyPath', () => {
@@ -122,5 +126,199 @@ describe('setTranslationValue', () => {
     expect(() => setTranslationValue(content, ['nav'], 'value')).toThrow(
       InvalidTranslationKeyError,
     );
+  });
+});
+
+describe('pathExists', () => {
+  const content: CatalogContent = { nav: { home: 'Home' }, title: 'Glossa' };
+
+  it('is true for an existing leaf', () => {
+    expect(pathExists(content, ['nav', 'home'])).toBe(true);
+  });
+
+  it('is true for an existing group', () => {
+    expect(pathExists(content, ['nav'])).toBe(true);
+  });
+
+  it('is false for a missing path', () => {
+    expect(pathExists(content, ['nav', 'missing'])).toBe(false);
+  });
+
+  it('is false when descending through a string leaf', () => {
+    expect(pathExists(content, ['title', 'nested'])).toBe(false);
+  });
+});
+
+describe('deleteTranslationValue', () => {
+  it('deletes a leaf while preserving its sibling', () => {
+    const content: CatalogContent = { nav: { home: 'Home', docs: 'Docs' } };
+    const next = deleteTranslationValue(content, ['nav', 'home']);
+
+    expect(next).toEqual({ nav: { docs: 'Docs' } });
+  });
+
+  it('prunes a parent left empty by the delete', () => {
+    const content: CatalogContent = { legacy: { banner: { title: 'Old' } } };
+    const next = deleteTranslationValue(content, ['legacy', 'banner', 'title']);
+
+    expect(next).toEqual({});
+  });
+
+  it('prunes multiple empty ancestors, not just the immediate parent', () => {
+    const content: CatalogContent = {
+      legacy: { banner: { title: 'Old title' } },
+      other: 'Kept',
+    };
+    const next = deleteTranslationValue(content, ['legacy', 'banner', 'title']);
+
+    expect(next).toEqual({ other: 'Kept' });
+  });
+
+  it('is a no-op for a missing target value', () => {
+    const content: CatalogContent = { nav: { home: 'Home' } };
+    const next = deleteTranslationValue(content, ['nav', 'missing']);
+
+    expect(next).toBe(content);
+  });
+
+  it('is a no-op when the path addresses a group, not a leaf', () => {
+    const content: CatalogContent = { nav: { home: 'Home' } };
+    expect(deleteTranslationValue(content, ['nav'])).toBe(content);
+  });
+
+  it('preserves a MessageFormat value elsewhere in the catalog untouched', () => {
+    const content: CatalogContent = {
+      nav: { home: 'Home' },
+      greeting: 'Hello {$name}',
+    };
+    const next = deleteTranslationValue(content, ['nav', 'home']);
+
+    expect(next).toEqual({ greeting: 'Hello {$name}' });
+  });
+
+  it('does not mutate the original object', () => {
+    const content: CatalogContent = { nav: { home: 'Home', docs: 'Docs' } };
+    deleteTranslationValue(content, ['nav', 'home']);
+
+    expect(content).toEqual({ nav: { home: 'Home', docs: 'Docs' } });
+  });
+
+  it('leaves unrelated branches completely untouched (same reference)', () => {
+    const content: CatalogContent = {
+      nav: { home: 'Home' },
+      dialog: { close: 'Close' },
+    };
+    const next = deleteTranslationValue(content, ['nav', 'home']);
+
+    expect(next['dialog']).toBe(content['dialog']);
+  });
+});
+
+describe('renameTranslationValue', () => {
+  it('renames a simple top-level key', () => {
+    const content: CatalogContent = { title: 'Glossa' };
+    const next = renameTranslationValue(content, ['title'], ['heading']);
+
+    expect(next).toEqual({ heading: 'Glossa' });
+  });
+
+  it('renames nav.home to navigation.home, preserving the exact value', () => {
+    const content: CatalogContent = { nav: { home: 'Home', docs: 'Docs' } };
+    const next = renameTranslationValue(
+      content,
+      ['nav', 'home'],
+      ['navigation', 'home'],
+    );
+
+    expect(next).toEqual({
+      nav: { docs: 'Docs' },
+      navigation: { home: 'Home' },
+    });
+  });
+
+  it('preserves siblings of the renamed key', () => {
+    const content: CatalogContent = { nav: { home: 'Home', docs: 'Docs' } };
+    const next = renameTranslationValue(content, ['nav', 'home'], ['title']);
+
+    expect(next['nav']).toEqual({ docs: 'Docs' });
+  });
+
+  it('prunes the old parent when it becomes empty', () => {
+    const content: CatalogContent = { nav: { home: 'Home' } };
+    const next = renameTranslationValue(
+      content,
+      ['nav', 'home'],
+      ['navigation', 'home'],
+    );
+
+    expect(next).toEqual({ navigation: { home: 'Home' } });
+  });
+
+  it('renames a deeply nested path', () => {
+    const content: CatalogContent = {
+      checkout: { payment: { title: 'Payment' } },
+    };
+    const next = renameTranslationValue(
+      content,
+      ['checkout', 'payment', 'title'],
+      ['checkout', 'billing', 'heading'],
+    );
+
+    expect(next).toEqual({ checkout: { billing: { heading: 'Payment' } } });
+  });
+
+  it('preserves a MessageFormat value byte-for-byte', () => {
+    const content: CatalogContent = { greeting: 'Hello {$name}' };
+    const next = renameTranslationValue(content, ['greeting'], ['welcome']);
+
+    expect(next['welcome']).toBe('Hello {$name}');
+  });
+
+  it('is a no-op when the old path does not exist in this catalog', () => {
+    const content: CatalogContent = { nav: { home: 'Home' } };
+    const next = renameTranslationValue(
+      content,
+      ['nav', 'missing'],
+      ['nav', 'renamed'],
+    );
+
+    expect(next).toBe(content);
+  });
+
+  it('rejects a rename onto a path that already exists', () => {
+    const content: CatalogContent = {
+      nav: { home: 'Home' },
+      navigation: { home: 'Inicio' },
+    };
+
+    expect(() =>
+      renameTranslationValue(content, ['nav', 'home'], ['navigation', 'home']),
+    ).toThrow(TranslationKeyCollisionError);
+    // Refusing the whole operation means the original content is untouched.
+    expect(content).toEqual({
+      nav: { home: 'Home' },
+      navigation: { home: 'Inicio' },
+    });
+  });
+
+  it('rejects renaming a key to itself', () => {
+    const content: CatalogContent = { nav: { home: 'Home' } };
+
+    expect(() =>
+      renameTranslationValue(content, ['nav', 'home'], ['nav', 'home']),
+    ).toThrow(InvalidTranslationKeyError);
+  });
+
+  it('rejects an unsafe new path via the shared key parser', () => {
+    expect(() => parseTranslationKeyPath('nav.__proto__')).toThrow(
+      InvalidTranslationKeyError,
+    );
+  });
+
+  it('does not mutate the original object', () => {
+    const content: CatalogContent = { nav: { home: 'Home', docs: 'Docs' } };
+    renameTranslationValue(content, ['nav', 'home'], ['navigation', 'home']);
+
+    expect(content).toEqual({ nav: { home: 'Home', docs: 'Docs' } });
   });
 });

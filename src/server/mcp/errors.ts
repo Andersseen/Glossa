@@ -3,22 +3,21 @@ import {
   CatalogNotFoundError,
   CatalogRevisionConflictError,
 } from '../services/catalog.service';
+import {
+  TranslationLifecycleConflictError,
+  TranslationNotFoundError,
+} from '../services/translation-lifecycle.service';
 import { CatalogValidationError } from '../domain/catalog';
-import { InvalidTranslationKeyError } from '../domain/translation-path';
+import {
+  InvalidTranslationKeyError,
+  TranslationKeyCollisionError,
+} from '../domain/translation-path';
 
 export class McpScopeError extends Error {
   readonly code = 'INVALID_SCOPE';
 
   constructor(message: string) {
     super(message);
-  }
-}
-
-export class TranslationNotFoundError extends Error {
-  readonly code = 'TRANSLATION_NOT_FOUND';
-
-  constructor() {
-    super('Translation not found.');
   }
 }
 
@@ -57,8 +56,18 @@ export function toToolError(error: unknown): McpToolResult {
     });
   }
 
+  if (error instanceof TranslationLifecycleConflictError) {
+    return errorResult('CATALOG_REVISION_CONFLICT', error.message, {
+      conflicts: error.conflicts,
+    });
+  }
+
   if (error instanceof InvalidTranslationKeyError) {
     return errorResult('INVALID_TRANSLATION_KEY', error.message);
+  }
+
+  if (error instanceof TranslationKeyCollisionError) {
+    return errorResult('TRANSLATION_KEY_COLLISION', error.message);
   }
 
   if (error instanceof CatalogValidationError) {
