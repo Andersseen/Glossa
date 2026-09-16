@@ -98,8 +98,9 @@ type Catalog = {
 
         <app-page-header
           class="mt-8"
+          eyebrow="Advanced"
           [title]="locale + '.json'"
-          description="Edit this locale's translation catalog as JSON."
+          description="Advanced editor for the complete locale catalog. For normal translation work, use the Translations workspace."
           [move]="'fade-up'"
         >
           <p slot="meta" class="mt-2 flex flex-wrap gap-2">
@@ -141,12 +142,13 @@ type Catalog = {
                   Saved
                 }
               </p>
-              <div class="flex gap-3">
+              <div class="flex flex-wrap gap-3">
                 <a
                   [routerLink]="['/projects', project.slug]"
+                  [queryParams]="{ tab: 'translations' }"
                   [class]="cancelLinkClass"
                 >
-                  Back to project
+                  Back to translations
                 </a>
                 @if (canWrite()) {
                   <ui-button

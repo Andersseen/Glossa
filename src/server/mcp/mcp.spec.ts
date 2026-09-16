@@ -20,6 +20,10 @@ import {
   revokeProjectToken,
 } from '../services/project-token.service';
 import { createProject } from '../services/project.service';
+import {
+  getTranslationWorkspace,
+  updateTranslationKey,
+} from '../services/translation-workspace.service';
 import routeHandler from './route-handler';
 
 const ORIGIN = 'https://glossa.test';
@@ -649,5 +653,60 @@ describe('MCP sees imported catalog content immediately', () => {
     });
 
     expect(textOf(read)['value']).toBe('Home');
+  });
+});
+
+describe('MCP sees human translation workspace edits immediately', () => {
+  it('reads back a value the human Translation API wrote, and rejects an agent write staled by it', async () => {
+    const cms = await getCmsRuntime();
+    const project = await createProject(cms, {
+      name: 'Workspace MCP Project',
+      slug: 'workspace-mcp-project',
+      sourceLocale: 'en',
+      locales: ['en', 'es'],
+    });
+    await saveCatalog(cms, project.slug, 'en', { nav: { home: 'Home' } });
+    const { secret } = await createProjectToken(cms, project, {
+      name: 'Agent',
+      scopes: ['catalog:write'],
+    });
+    const client = await connectClient(secret);
+
+    // The agent reads `es` before the human touches it — this revision is about to go stale.
+    const agentRevision = await currentRevision(client, 'es', 'nav.home');
+
+    const workspace = await getTranslationWorkspace(cms, project.slug);
+    const humanWrite = await updateTranslationKey(cms, project.slug, {
+      key: 'nav.home',
+      changes: [
+        {
+          locale: 'es',
+          value: 'Inicio',
+          expectedRevision: workspace.catalogs['es']?.revision,
+        },
+      ],
+    });
+    expect(humanWrite.saved).toBe(true);
+
+    const read = await client.callTool({
+      name: 'get_translation',
+      arguments: { locale: 'es', key: 'nav.home' },
+    });
+    expect(textOf(read)['value']).toBe('Inicio');
+
+    const staleAgentWrite = await client.callTool({
+      name: 'set_translation',
+      arguments: {
+        locale: 'es',
+        key: 'nav.home',
+        value: 'Casa',
+        expectedRevision: agentRevision,
+      },
+    });
+    expect(staleAgentWrite.isError).toBe(true);
+    expect(textOf(staleAgentWrite)['code']).toBe('CATALOG_REVISION_CONFLICT');
+    expect((await getCatalog(cms, project.slug, 'es')).content).toEqual({
+      nav: { home: 'Inicio' },
+    });
   });
 });

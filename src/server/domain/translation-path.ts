@@ -40,6 +40,23 @@ export function parseTranslationKeyPath(key: string): string[] {
   return segments;
 }
 
+/**
+ * Whether a *stored* catalog key segment can be addressed by a dot-path key at all. The inverse
+ * direction of `parseTranslationKeyPath`: that function guards keys coming *in* from a client,
+ * this one guards keys going *out* of a catalog the workspace flattens into dot-paths. Both read
+ * the same `DANGEROUS_SEGMENTS` set — there is deliberately no second notion of "disallowed
+ * segment" anywhere. A segment containing a literal `.` is rejected here (and only here): it has
+ * no effect on parsing, but `{"nav.home": "A", "nav": {"home": "B"}}` would otherwise flatten to
+ * the same dot-path twice, and writing that key back would silently land on the nested one.
+ */
+export function isAddressableTranslationSegment(segment: string): boolean {
+  return (
+    segment.length > 0 &&
+    !segment.includes('.') &&
+    !DANGEROUS_SEGMENTS.has(segment)
+  );
+}
+
 export function getTranslationValue(
   content: CatalogContent,
   path: string[],

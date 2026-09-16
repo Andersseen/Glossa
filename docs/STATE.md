@@ -4,6 +4,46 @@ Glossa is a single Analog.js application backed by ForgeCMS 0.4.x public npm pac
 
 ## Implemented
 
+- **Translation Workspace V1** — the human editing surface, and the normal way translations are
+  edited. The project's `Translations` tab is key-centric and cross-locale: the source-locale
+  catalog defines the canonical key list, and each key is shown once with its value in every
+  configured locale, instead of a person opening `en.json`/`es.json`/`uk.json` and searching
+  each one. Includes client-side search (key and source value), All/Missing/Complete filters,
+  a compact total/complete/missing summary, first-segment grouping, a multi-locale key editor
+  with the source locale first, and **Add translation** for creating a key (source value
+  required, target values optional). Raw JSON catalog editing is kept, relabelled as the
+  advanced escape hatch. No rename, delete, or move — those need their own milestone.
+  - **No new storage.** Nested JSON catalogs remain the only source of truth; no translation
+    row/key table, no new Forge collection, no schema change. The workspace is a view and a
+    key-scoped editing API over the existing catalogs.
+  - **One shared domain layer.** `src/server/domain/translation-tree.ts` flattens a catalog into
+    dot-path leaves and builds the cross-locale entries; it reads the same disallowed-segment
+    rule as the MCP-facing `parseTranslationKeyPath` (`isAddressableTranslationSegment`) rather
+    than introducing a second key parser. A stored key that cannot round-trip through that
+    parser (an unsafe segment, or a segment containing a literal `.`) is skipped by the
+    workspace rather than listed as a row that could never be saved — it stays stored and
+    remains editable in the raw JSON editor.
+  - **Presence, not truthiness.** A locale "has" a key when the key exists as a string leaf in
+    that catalog. An empty string is a stored value, so clearing a translation does not make the
+    key report as missing again.
+  - **Human API**: `GET/PATCH/POST /api/projects/:slug/translations`, behind the same
+    `requireUser`/`requireWriteUser` boundary as every other human route (a machine token is
+    rejected here exactly as on other `/api/projects/*` routes). `GET` returns the whole
+    workspace in a single request — ~1,000–2,000 keys is the expected size, search and filtering
+    are client-side, and there is deliberately no per-key read endpoint to call in a loop.
+    `PATCH` submits one key and only the locales that changed; `POST` creates a key.
+  - **Concurrency**: every changed locale carries the revision the workspace was loaded with and
+    is written through `saveCatalogWithPrecondition` — the same optimistic-concurrency model the
+    machine API, MCP, and catalog import already use. A stale save is rejected (`409`, per-locale
+    `CATALOG_REVISION_CONFLICT`) and the newer content survives. A multi-locale save is
+    preflighted first, so a conflict on one locale writes none of them; there is no transaction
+    across catalog rows and none is claimed — the response reports per locale what was saved and
+    what was not, and the UI never says "Saved" for a locale that failed. A failed save
+    deliberately does not adopt the server's newer revisions client-side; the human reloads.
+  - **No sync step**: writes go through `CatalogService`, so a human edit is immediately visible
+    to the raw JSON editor, machine API, MCP `get_translation`, and public delivery.
+  - Roles: `admin`/`editor` edit; `viewer` can search, filter, select and read, with read-only
+    fields, no Save, and no Add translation (enforced server-side, not just in the UI).
 - Project access tokens: `admin`-only create/list/revoke/delete
   (`/api/projects/:slug/tokens`), backed by Forge's `ApiKeyAuthAdapter` (prefix `glossa`,
   `glossa_<id>_<secret>`), bound to exactly one project via trusted `metadata.projectId`.
@@ -43,7 +83,7 @@ Glossa is a single Analog.js application backed by ForgeCMS 0.4.x public npm pac
 - JSON catalog list/get/save/delete for the default internal namespace.
 - Existing catalog import: `POST /api/projects/:slug/catalogs/import/preview` (read-only) and
   `POST /api/projects/:slug/catalogs/import` (commit) let a project onboard the JSON locale
-  files it already has, from the Catalogs tab's "Import catalogs" panel — multi-file
+  files it already has, from the Overview tab's "Import catalogs" panel — multi-file
   drag-and-drop or file picker, filename-based locale inference (`en.json` → `en`) matched
   against the project's configured locales, with manual per-file correction and no silent
   creation of an unconfigured locale. The whole batch is preflighted (locale configured,
@@ -52,9 +92,9 @@ Glossa is a single Analog.js application backed by ForgeCMS 0.4.x public npm pac
   existing catalog is never replaced without explicit per-file confirmation, enforced with
   the same revision/`If-Match` precondition `saveCatalogWithPrecondition` already provides —
   no second concurrency model. Every imported catalog is written through `CatalogService`,
-  so it is indistinguishable from an editor or machine write: it appears in the Catalogs UI,
-  the machine API, MCP, and (if `publicDelivery` is on) public delivery immediately, with no
-  publish/sync step. See the "Migrating an existing project" section in `README.md`.
+  so it is indistinguishable from an editor or machine write: it appears in the Translations
+  workspace, the raw catalogs UI, the machine API, MCP, and (if `publicDelivery` is on) public
+  delivery immediately, with no publish/sync step. See the "Migrating an existing project" section in `README.md`.
 - ForgeCMS collections: `users`, `projects`, `catalogs`, `external_identities`, `sso_sessions`.
 - Primary interactive auth: DevAuth OAuth 2.1/OIDC SSO (Authorization Code + PKCE S256,
   server-side code exchange, identity from `userinfo`).
@@ -85,17 +125,22 @@ Project access tokens persist in Forge's own internal `_forge_api_keys` collecti
 
 ## Deferred
 
-Catalog export, completeness and diff analysis, AI translation, translation memory, GitHub integration, teams, billing, OAuth, comments, review workflow, namespaces UI, and a CLI/repository-sync layer are intentionally deferred.
+Translation key lifecycle (rename, delete, move across locales), richer completeness/diff
+analysis, catalog export, AI translation, translation memory, GitHub integration, teams,
+billing, OAuth, comments, review workflow, namespaces UI, and a CLI/repository-sync layer are
+intentionally deferred. Target-locale keys the source locale does not define are left stored
+and untouched; the workspace only reports how many exist per locale, and cleaning them up
+remains a raw-JSON task.
 
 ## Testing
 
-Every Vitest spec — including catalog import and its public-delivery/MCP/machine-API
-integration coverage — runs against Forge's `InMemoryDatabaseAdapter`, and Playwright's
+Every Vitest spec — including the translation workspace, catalog import, and their
+public-delivery/MCP/machine-API integration coverage — runs against Forge's `InMemoryDatabaseAdapter`, and Playwright's
 `webServer` is plain `pnpm dev` (also in-memory); there is no `wrangler`-D1-backed or
 `vitest-pool-workers` test runtime in this repository. Public delivery and MCP were
 previously verified manually against a real local D1 database (`wrangler pages dev`),
 including the full agent journey. Catalog import was **not** re-verified against a real D1
-database in this milestone: `wrangler.jsonc` binds the one real D1 database this repository
+database, and neither was the Translation Workspace: `wrangler.jsonc` binds the one real D1 database this repository
 has (`glossa`, a production id, not a disposable/local-only one), and `wrangler pages dev`
 against it would write test projects/catalogs into shared production data; `.dev.vars` also
 has no `BOOTSTRAP_ADMIN_KEY`/`AUTH_SECRET`, and the only interactive sign-in path
@@ -107,14 +152,20 @@ journey as the prior public-delivery/MCP milestone: sign in, create a project, i
 small catalog from the UI, then confirm it through `/i18n/:slug/:locale.json`, the machine
 API, and MCP. Building a real-D1 Vitest harness remains future infrastructure work.
 
-## Next Milestone
+## Next Milestone Candidates
 
-Volt UI: first real consumer / dogfood. With existing-catalog import now in place, an
-existing project's `en.json`/`es.json`/`uk.json` no longer need a script to reach Glossa —
+Translation key lifecycle — renaming and deleting a key safely across every locale — and/or
+Completeness / Diff / Missing Keys V2, a richer project-wide analysis than the single
+"a value exists in every configured locale" rule this milestone introduced.
+
+## Still Open
+
+Volt UI: first real consumer / dogfood — planned after catalog import and not yet done. With
+existing-catalog import in place, an existing project's `en.json`/`es.json`/`uk.json` no
+longer need a script to reach Glossa —
 Volt UI itself should only need an Etyma upgrade, `defineRemoteI18n`/`createHttpMessageLoader`,
 and a Glossa base URL/token, not a migration step of its own. Point its runtime i18n loader
 at a public Glossa delivery URL and its AI agents at the Glossa MCP endpoint, and see whether
-that integration genuinely stays as small as this milestone was designed to make it.
+that integration genuinely stays as small as the import milestone was designed to make it.
 
-Later: catalog export. Later still: completeness / diff / missing keys, CLI / repository
-pull-push synchronization.
+Later: catalog export. Later still: CLI / repository pull-push synchronization.
