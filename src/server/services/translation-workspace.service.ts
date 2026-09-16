@@ -105,7 +105,7 @@ type NormalizedChange = {
   expectedRevision?: string;
 };
 
-type LoadedCatalogs = {
+export type LoadedCatalogs = {
   contents: Map<string, CatalogContent>;
   states: Record<string, TranslationCatalogState>;
 };
@@ -419,8 +419,12 @@ function assertKeyIsNew(
   }
 }
 
-/** One `listCatalogs` read for the whole project — never one request per key or per locale. */
-async function loadCatalogs(
+/**
+ * One `listCatalogs` read for the whole project — never one request per key or per locale.
+ * Exported so the translation-lifecycle service reuses the exact same load, rather than a second
+ * one that could drift (e.g. forget a locale with no catalog yet).
+ */
+export async function loadCatalogs(
   cms: GlossaCmsRuntime,
   project: Project,
 ): Promise<LoadedCatalogs> {
@@ -442,9 +446,9 @@ async function loadCatalogs(
   return { contents, states };
 }
 
-function requireKey(value: unknown): string {
+export function requireKey(value: unknown, label = 'Translation key'): string {
   if (typeof value !== 'string' || !value.trim()) {
-    throw new TranslationValidationError('Translation key is required.');
+    throw new TranslationValidationError(`${label} is required.`);
   }
 
   return value.trim();
@@ -519,7 +523,7 @@ function requireRecord(
   return value as Record<string, unknown>;
 }
 
-function readExpectedRevisions(value: unknown): Record<string, string> {
+export function readExpectedRevisions(value: unknown): Record<string, string> {
   if (value === undefined || value === null) {
     return {};
   }

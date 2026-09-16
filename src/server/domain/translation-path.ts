@@ -8,6 +8,14 @@ export class InvalidTranslationKeyError extends Error {
   }
 }
 
+export class TranslationKeyCollisionError extends Error {
+  readonly code = 'TRANSLATION_KEY_COLLISION';
+
+  constructor(key: string) {
+    super(`Translation key "${key}" already exists.`);
+  }
+}
+
 const DANGEROUS_SEGMENTS = new Set(['__proto__', 'prototype', 'constructor']);
 
 /**
@@ -75,6 +83,26 @@ export function getTranslationValue(
 }
 
 /**
+ * Whether *anything* — a leaf value or a group — is stored at `path`. Unlike `getTranslationValue`
+ * this does not care about the node's type, because a rename/delete collision check must refuse a
+ * target path that is currently a group just as much as one that is already a translation value;
+ * either way, writing there would silently destroy existing structure.
+ */
+export function pathExists(content: CatalogContent, path: string[]): boolean {
+  let node: string | CatalogContent | undefined = content;
+
+  for (const segment of path) {
+    if (typeof node !== 'object' || node === null) {
+      return false;
+    }
+
+    node = node[segment];
+  }
+
+  return node !== undefined;
+}
+
+/**
  * Returns a new catalog content object with `value` written at `path`, creating any missing
  * intermediate objects along the way. Only the branches on `path` are cloned — sibling subtrees
  * are referentially reused — so this stays cheap even for a large catalog and a single-key edit.
@@ -113,4 +141,105 @@ export function setTranslationValue(
   const child = existing ?? {};
 
   return { ...content, [head]: setTranslationValue(child, rest, value) };
+}
+
+/**
+ * Returns a new catalog content object with the leaf at `path` removed, pruning any ancestor
+ * group along that path that becomes empty as a result — but never an ancestor that still has
+ * other children, and never a branch `path` does not touch. A `path` that does not resolve to an
+ * existing leaf (already absent, or currently a group) is a no-op: the same `content` reference is
+ * returned unchanged, so a caller can cheaply tell "nothing happened" from `result === content`.
+ */
+export function deleteTranslationValue(
+  content: CatalogContent,
+  path: string[],
+): CatalogContent {
+  const head = path[0];
+
+  if (head === undefined) {
+    throw new InvalidTranslationKeyError('Translation key path is empty.');
+  }
+
+  const existing = content[head];
+
+  if (existing === undefined) {
+    return content;
+  }
+
+  const rest = path.slice(1);
+
+  if (rest.length === 0) {
+    if (typeof existing !== 'string') {
+      return content;
+    }
+
+    const next = { ...content };
+    delete next[head];
+    return next;
+  }
+
+  if (typeof existing === 'string') {
+    return content;
+  }
+
+  const child = deleteTranslationValue(existing, rest);
+
+  if (child === existing) {
+    return content;
+  }
+
+  if (Object.keys(child).length === 0) {
+    const next = { ...content };
+    delete next[head];
+    return next;
+  }
+
+  return { ...content, [head]: child };
+}
+
+/**
+ * Moves the value at `oldPath` to `newPath` within one catalog, preserving it exactly (never
+ * parsed or reformatted — MessageFormat placeholders like `{$count :number}` are just characters
+ * here) and pruning any old parent group left empty. Implemented on top of `getTranslationValue`,
+ * `deleteTranslationValue`, and `setTranslationValue` rather than as a third traversal, so pruning
+ * and immutability stay in exactly one place each.
+ *
+ * A `content` that does not have `oldPath` at all is a no-op (`content` returned unchanged) — a
+ * target locale that never had the key stays without it, it does not gain an empty value. A
+ * `newPath` that already resolves to *anything* (a value or a group) in `content` is refused: the
+ * caller (the project-wide lifecycle service) is expected to have already preflighted this across
+ * every catalog, so reaching this here would mean a real, unresolved conflict.
+ */
+export function renameTranslationValue(
+  content: CatalogContent,
+  oldPath: string[],
+  newPath: string[],
+): CatalogContent {
+  if (pathsEqual(oldPath, newPath)) {
+    throw new InvalidTranslationKeyError(
+      'The new key must be different from the current key.',
+    );
+  }
+
+  const value = getTranslationValue(content, oldPath);
+
+  if (value === undefined) {
+    return content;
+  }
+
+  if (pathExists(content, newPath)) {
+    throw new TranslationKeyCollisionError(newPath.join('.'));
+  }
+
+  return setTranslationValue(
+    deleteTranslationValue(content, oldPath),
+    newPath,
+    value,
+  );
+}
+
+function pathsEqual(a: readonly string[], b: readonly string[]): boolean {
+  return (
+    a.length === b.length && a.every((segment, index) => segment === b[index])
+  );
 }

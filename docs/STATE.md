@@ -12,7 +12,8 @@ Glossa is a single Analog.js application backed by ForgeCMS 0.4.x public npm pac
   a compact total/complete/missing summary, first-segment grouping, a multi-locale key editor
   with the source locale first, and **Add translation** for creating a key (source value
   required, target values optional). Raw JSON catalog editing is kept, relabelled as the
-  advanced escape hatch. No rename, delete, or move — those need their own milestone.
+  advanced escape hatch. Create, edit, rename, and delete are all supported — see
+  **Translation Key Lifecycle V1** below for rename/delete.
   - **No new storage.** Nested JSON catalogs remain the only source of truth; no translation
     row/key table, no new Forge collection, no schema change. The workspace is a view and a
     key-scoped editing API over the existing catalogs.
@@ -44,6 +45,53 @@ Glossa is a single Analog.js application backed by ForgeCMS 0.4.x public npm pac
     to the raw JSON editor, machine API, MCP `get_translation`, and public delivery.
   - Roles: `admin`/`editor` edit; `viewer` can search, filter, select and read, with read-only
     fields, no Save, and no Add translation (enforced server-side, not just in the UI).
+- **Translation Key Lifecycle V1** — safe project-wide rename and delete of a canonical source
+  key, from the Translation Workspace or MCP, with no Raw JSON required.
+  - **Domain**: `renameTranslationValue`/`deleteTranslationValue`/`pathExists` in
+    `src/server/domain/translation-path.ts`, next to `getTranslationValue`/`setTranslationValue`
+    since they operate the same way (one `CatalogContent`, one or two paths). Rename combines
+    `deleteTranslationValue` and `setTranslationValue` rather than a third traversal; both prune
+    every now-empty ancestor left behind, never an unrelated branch, and preserve MessageFormat
+    values byte-for-byte since neither parses the string. A path with nothing to rename/delete
+    is a same-reference no-op. A rename onto a path that already holds anything (value or group)
+    is refused with `TranslationKeyCollisionError`, same-old-and-new-key with
+    `InvalidTranslationKeyError`.
+  - **Service**: `renameProjectTranslationKey`/`deleteProjectTranslationKey` in
+    `src/server/services/translation-lifecycle.service.ts` orchestrate the rename/delete across
+    every configured locale, reusing `loadCatalogs`/`readExpectedRevisions`/`requireKey`
+    (exported from `translation-workspace.service.ts`, not duplicated) and
+    `saveCatalogWithPrecondition`. **Preflighted before any write**: every _existing_ project
+    catalog's revision must match `expectedRevisions` (not just the locales the operation
+    touches) or the whole thing is refused with `TranslationLifecycleConflictError`
+    (`409 CATALOG_REVISION_CONFLICT`, per-locale `conflicts`); the key must exist in the source
+    locale (`TranslationNotFoundError`, `404`); a rename's `newKey` must not already exist in
+    _any_ configured locale, including a target-only orphan the source locale never defined
+    (`TranslationKeyCollisionError`, `409 TRANSLATION_KEY_COLLISION`). A locale with no catalog,
+    or that never had the key, is silently skipped — never created, never an error. No real
+    cross-catalog transaction exists in the current Forge/D1 abstraction, and none is invented:
+    after a clean preflight, each locale is still written independently through
+    `saveCatalogWithPrecondition`, and the response's per-locale `results` report exactly what
+    was saved if a genuine race still occurs in that narrow window — no claimed rollback.
+  - **Human API**: `POST /api/projects/:slug/translations/rename` and `.../delete`, dedicated
+    routes rather than a flag on the value-edit `PATCH` (the request/response shape is a
+    different, all-or-nothing operation). Same `requireWriteUser` boundary as every other
+    `/api/projects/*` route — `admin`/`editor` write, `viewer` and machine tokens rejected.
+  - **MCP parity**: `rename_translation`/`delete_translation` tools, requiring
+    `catalog:write`, calling the exact same lifecycle service as the human routes — no
+    duplicated rename/delete/collision/preflight logic between them. See `docs/MCP.md`.
+  - **UI**: `Rename key` and `Delete key` on the selected key in the Translation Workspace
+    (`rename-key-panel.ts`/`delete-key-panel.ts`, self-contained like `AddTranslationPanel` —
+    own drawer, request, and error state). Rename warns that application code using the old key
+    may need updating; delete is a destructive confirmation showing the key and its stored
+    values. Both are disabled while the selected key has unsaved edits
+    (`TranslationKeyEditor` emits `dirtyChange`) rather than silently discarding them. A stale-
+    revision conflict shows the same "reload before continuing" message the value-edit path
+    uses, with no silent retry. On success the workspace reloads and reselects the renamed key,
+    or falls back to the next remaining key (or empty) after a delete.
+  - **Machine API is unchanged** — no new REST endpoints; key-lifecycle primitives are
+    human-workspace/MCP-only in this milestone.
+  - Deliberately deferred: target-only orphan-key cleanup, bulk rename/delete, undo/history,
+    audit log, and a "move key" UI distinct from rename.
 - Project access tokens: `admin`-only create/list/revoke/delete
   (`/api/projects/:slug/tokens`), backed by Forge's `ApiKeyAuthAdapter` (prefix `glossa`,
   `glossa_<id>_<secret>`), bound to exactly one project via trusted `metadata.projectId`.
@@ -125,17 +173,20 @@ Project access tokens persist in Forge's own internal `_forge_api_keys` collecti
 
 ## Deferred
 
-Translation key lifecycle (rename, delete, move across locales), richer completeness/diff
-analysis, catalog export, AI translation, translation memory, GitHub integration, teams,
-billing, OAuth, comments, review workflow, namespaces UI, and a CLI/repository-sync layer are
-intentionally deferred. Target-locale keys the source locale does not define are left stored
-and untouched; the workspace only reports how many exist per locale, and cleaning them up
-remains a raw-JSON task.
+Richer completeness/diff analysis, catalog export, AI translation, translation memory, GitHub
+integration, teams, billing, OAuth, comments, review workflow, namespaces UI, and a
+CLI/repository-sync layer are intentionally deferred. Target-locale keys the source locale does
+not define are left stored and untouched; the workspace only reports how many exist per locale,
+and cleaning them up (target-only orphan cleanup) remains a raw-JSON task — Translation Key
+Lifecycle V1 intentionally does not solve this, only canonical-source-key rename/delete. Also
+still deferred: bulk rename/delete, undo/history, an audit log, and a "move key" UI distinct
+from rename.
 
 ## Testing
 
-Every Vitest spec — including the translation workspace, catalog import, and their
-public-delivery/MCP/machine-API integration coverage — runs against Forge's `InMemoryDatabaseAdapter`, and Playwright's
+Every Vitest spec — including the translation workspace, the translation key lifecycle
+(rename/delete), catalog import, and their public-delivery/MCP/machine-API integration coverage
+— runs against Forge's `InMemoryDatabaseAdapter`, and Playwright's
 `webServer` is plain `pnpm dev` (also in-memory); there is no `wrangler`-D1-backed or
 `vitest-pool-workers` test runtime in this repository. Public delivery and MCP were
 previously verified manually against a real local D1 database (`wrangler pages dev`),
@@ -154,9 +205,9 @@ API, and MCP. Building a real-D1 Vitest harness remains future infrastructure wo
 
 ## Next Milestone Candidates
 
-Translation key lifecycle — renaming and deleting a key safely across every locale — and/or
-Completeness / Diff / Missing Keys V2, a richer project-wide analysis than the single
-"a value exists in every configured locale" rule this milestone introduced.
+**Completeness / Diff / Missing Keys V2** — a richer project-wide analysis than the single "a
+value exists in every configured locale" rule the Translation Workspace introduced, building on
+the Workspace plus the full translation key lifecycle (create/edit/rename/delete) now in place.
 
 ## Still Open
 

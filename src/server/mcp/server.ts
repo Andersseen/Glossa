@@ -1,11 +1,13 @@
 import { McpServer } from '@modelcontextprotocol/server';
 
 import type { ProjectMachineContext } from '../http/machine-http';
+import { registerDeleteTranslationTool } from './tools/delete-translation';
 import { registerGetCatalogTool } from './tools/get-catalog';
 import { registerGetDeliveryUrlsTool } from './tools/get-delivery-urls';
 import { registerGetProjectTool } from './tools/get-project';
 import { registerGetTranslationTool } from './tools/get-translation';
 import { registerListCatalogsTool } from './tools/list-catalogs';
+import { registerRenameTranslationTool } from './tools/rename-translation';
 import { registerSetTranslationTool } from './tools/set-translation';
 
 /**
@@ -25,6 +27,8 @@ export function createProjectMcpServer(
   registerGetCatalogTool(server, machine);
   registerGetTranslationTool(server, machine);
   registerSetTranslationTool(server, machine);
+  registerRenameTranslationTool(server, machine);
+  registerDeleteTranslationTool(server, machine);
   registerGetDeliveryUrlsTool(server, machine, origin);
 
   return server;

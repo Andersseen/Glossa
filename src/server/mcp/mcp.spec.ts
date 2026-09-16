@@ -21,6 +21,10 @@ import {
 } from '../services/project-token.service';
 import { createProject } from '../services/project.service';
 import {
+  deleteProjectTranslationKey,
+  renameProjectTranslationKey,
+} from '../services/translation-lifecycle.service';
+import {
   getTranslationWorkspace,
   updateTranslationKey,
 } from '../services/translation-workspace.service';
@@ -193,7 +197,7 @@ describe('MCP auth boundary', () => {
 });
 
 describe('MCP tool discovery', () => {
-  it('lists all six tools, none accepting a project-selecting argument', async () => {
+  it('lists all eight tools, none accepting a project-selecting argument', async () => {
     const cms = await getCmsRuntime();
     const project = await createProject(cms, {
       name: 'Volt UI',
@@ -210,11 +214,13 @@ describe('MCP tool discovery', () => {
     const { tools } = await client.listTools();
 
     expect(tools.map((tool) => tool.name).sort()).toEqual([
+      'delete_translation',
       'get_catalog',
       'get_delivery_urls',
       'get_project',
       'get_translation',
       'list_catalogs',
+      'rename_translation',
       'set_translation',
     ]);
 
@@ -708,5 +714,277 @@ describe('MCP sees human translation workspace edits immediately', () => {
     expect((await getCatalog(cms, project.slug, 'es')).content).toEqual({
       nav: { home: 'Inicio' },
     });
+  });
+});
+
+/** Every configured locale's current revision, read the documented way — via the tools themselves. */
+async function catalogRevisionsViaMcp(
+  client: Client,
+  locales: string[],
+): Promise<Record<string, string>> {
+  const revisions: Record<string, string> = {};
+
+  for (const locale of locales) {
+    const result = await client.callTool({
+      name: 'get_catalog',
+      arguments: { locale },
+    });
+
+    if (!result.isError) {
+      revisions[locale] = textOf(result)['revision'] as string;
+    }
+  }
+
+  return revisions;
+}
+
+describe('MCP rename_translation / delete_translation', () => {
+  async function setUpProject(
+    cms: GlossaCmsRuntime,
+    slug: string,
+  ): Promise<Project> {
+    const project = await createProject(cms, {
+      name: 'Volt UI',
+      slug,
+      sourceLocale: 'en',
+      locales: ['en', 'es'],
+    });
+    await saveCatalog(cms, slug, 'en', { nav: { home: 'Home' } });
+    await saveCatalog(cms, slug, 'es', { nav: { home: 'Inicio' } });
+    return project;
+  }
+
+  it('rejects rename_translation and delete_translation for a read-only token', async () => {
+    const cms = await getCmsRuntime();
+    const project = await setUpProject(cms, 'volt-ui-lifecycle-read-only');
+    const { secret } = await createProjectToken(cms, project, {
+      name: 'Reader',
+      scopes: ['catalog:read'],
+    });
+    const client = await connectClient(secret);
+    const expectedRevisions = await catalogRevisionsViaMcp(client, [
+      'en',
+      'es',
+    ]);
+
+    const rename = await client.callTool({
+      name: 'rename_translation',
+      arguments: {
+        key: 'nav.home',
+        newKey: 'navigation.home',
+        expectedRevisions,
+      },
+    });
+    expect(rename.isError).toBe(true);
+    expect(textOf(rename)['code']).toBe('INVALID_SCOPE');
+
+    const del = await client.callTool({
+      name: 'delete_translation',
+      arguments: { key: 'nav.home', expectedRevisions },
+    });
+    expect(del.isError).toBe(true);
+    expect(textOf(del)['code']).toBe('INVALID_SCOPE');
+  });
+
+  it('renames the key across every locale for a write-scoped token', async () => {
+    const cms = await getCmsRuntime();
+    const project = await setUpProject(cms, 'volt-ui-lifecycle-rename');
+    const { secret } = await createProjectToken(cms, project, {
+      name: 'Writer',
+      scopes: ['catalog:write'],
+    });
+    const client = await connectClient(secret);
+    const expectedRevisions = await catalogRevisionsViaMcp(client, [
+      'en',
+      'es',
+    ]);
+
+    const result = await client.callTool({
+      name: 'rename_translation',
+      arguments: {
+        key: 'nav.home',
+        newKey: 'navigation.home',
+        expectedRevisions,
+      },
+    });
+
+    expect(result.isError).toBeFalsy();
+    expect(textOf(result)['saved']).toBe(true);
+
+    const oldKey = await client.callTool({
+      name: 'get_translation',
+      arguments: { locale: 'en', key: 'nav.home' },
+    });
+    expect(textOf(oldKey)['exists']).toBe(false);
+
+    const newKey = await client.callTool({
+      name: 'get_translation',
+      arguments: { locale: 'en', key: 'navigation.home' },
+    });
+    expect(textOf(newKey)['exists']).toBe(true);
+    expect(textOf(newKey)['value']).toBe('Home');
+  });
+
+  it('deletes the key across every locale for a write-scoped token', async () => {
+    const cms = await getCmsRuntime();
+    const project = await setUpProject(cms, 'volt-ui-lifecycle-delete');
+    const { secret } = await createProjectToken(cms, project, {
+      name: 'Writer',
+      scopes: ['catalog:write'],
+    });
+    const client = await connectClient(secret);
+    const expectedRevisions = await catalogRevisionsViaMcp(client, [
+      'en',
+      'es',
+    ]);
+
+    const result = await client.callTool({
+      name: 'delete_translation',
+      arguments: { key: 'nav.home', expectedRevisions },
+    });
+
+    expect(result.isError).toBeFalsy();
+    expect(textOf(result)['saved']).toBe(true);
+
+    const read = await client.callTool({
+      name: 'get_translation',
+      arguments: { locale: 'en', key: 'nav.home' },
+    });
+    expect(textOf(read)['exists']).toBe(false);
+  });
+
+  it('rejects a stale revision on rename_translation without writing anything', async () => {
+    const cms = await getCmsRuntime();
+    const project = await setUpProject(cms, 'volt-ui-lifecycle-stale');
+    const { secret } = await createProjectToken(cms, project, {
+      name: 'Writer',
+      scopes: ['catalog:write'],
+    });
+    const client = await connectClient(secret);
+    const staleRevisions = await catalogRevisionsViaMcp(client, ['en', 'es']);
+
+    // A concurrent human edit changes `es` after the agent "read" its revision above.
+    await saveCatalog(cms, project.slug, 'es', { nav: { home: 'Casa' } });
+
+    const result = await client.callTool({
+      name: 'rename_translation',
+      arguments: {
+        key: 'nav.home',
+        newKey: 'navigation.home',
+        expectedRevisions: staleRevisions,
+      },
+    });
+
+    expect(result.isError).toBe(true);
+    expect(textOf(result)['code']).toBe('CATALOG_REVISION_CONFLICT');
+    expect((await getCatalog(cms, project.slug, 'en')).content).toEqual({
+      nav: { home: 'Home' },
+    });
+  });
+
+  it('refuses a rename_translation collision and changes nothing', async () => {
+    const cms = await getCmsRuntime();
+    const project = await setUpProject(cms, 'volt-ui-lifecycle-collision');
+    await saveCatalog(cms, project.slug, 'es', {
+      nav: { home: 'Inicio' },
+      navigation: { home: 'Existente' },
+    });
+    const { secret } = await createProjectToken(cms, project, {
+      name: 'Writer',
+      scopes: ['catalog:write'],
+    });
+    const client = await connectClient(secret);
+    const expectedRevisions = await catalogRevisionsViaMcp(client, [
+      'en',
+      'es',
+    ]);
+
+    const result = await client.callTool({
+      name: 'rename_translation',
+      arguments: {
+        key: 'nav.home',
+        newKey: 'navigation.home',
+        expectedRevisions,
+      },
+    });
+
+    expect(result.isError).toBe(true);
+    expect(textOf(result)['code']).toBe('TRANSLATION_KEY_COLLISION');
+    expect((await getCatalog(cms, project.slug, 'en')).content).toEqual({
+      nav: { home: 'Home' },
+    });
+  });
+});
+
+describe('MCP lifecycle operations sync with the human workspace and public delivery', () => {
+  it('a human rename is immediately visible to MCP and public delivery', async () => {
+    const cms = await getCmsRuntime();
+    const project = await createProject(cms, {
+      name: 'Lifecycle Sync Project',
+      slug: 'lifecycle-sync-rename',
+      sourceLocale: 'en',
+      locales: ['en'],
+      publicDelivery: true,
+    });
+    await saveCatalog(cms, project.slug, 'en', { nav: { home: 'Home' } });
+    const { secret } = await createProjectToken(cms, project, {
+      name: 'Agent',
+      scopes: ['catalog:read'],
+    });
+    const client = await connectClient(secret);
+
+    const workspace = await getTranslationWorkspace(cms, project.slug);
+    await renameProjectTranslationKey(cms, project.slug, {
+      key: 'nav.home',
+      newKey: 'navigation.home',
+      expectedRevisions: { en: workspace.catalogs['en']?.revision },
+    });
+
+    const oldKey = await client.callTool({
+      name: 'get_translation',
+      arguments: { locale: 'en', key: 'nav.home' },
+    });
+    expect(textOf(oldKey)['exists']).toBe(false);
+
+    const newKey = await client.callTool({
+      name: 'get_translation',
+      arguments: { locale: 'en', key: 'navigation.home' },
+    });
+    expect(textOf(newKey)['value']).toBe('Home');
+
+    const delivered = await getPublicCatalog(cms, project.slug, 'en');
+    expect(delivered?.content).toEqual({ navigation: { home: 'Home' } });
+  });
+
+  it('a human delete is immediately reported missing by MCP and absent from public delivery', async () => {
+    const cms = await getCmsRuntime();
+    const project = await createProject(cms, {
+      name: 'Lifecycle Sync Project',
+      slug: 'lifecycle-sync-delete',
+      sourceLocale: 'en',
+      locales: ['en'],
+      publicDelivery: true,
+    });
+    await saveCatalog(cms, project.slug, 'en', { nav: { home: 'Home' } });
+    const { secret } = await createProjectToken(cms, project, {
+      name: 'Agent',
+      scopes: ['catalog:read'],
+    });
+    const client = await connectClient(secret);
+
+    const workspace = await getTranslationWorkspace(cms, project.slug);
+    await deleteProjectTranslationKey(cms, project.slug, {
+      key: 'nav.home',
+      expectedRevisions: { en: workspace.catalogs['en']?.revision },
+    });
+
+    const read = await client.callTool({
+      name: 'get_translation',
+      arguments: { locale: 'en', key: 'nav.home' },
+    });
+    expect(textOf(read)['exists']).toBe(false);
+
+    const delivered = await getPublicCatalog(cms, project.slug, 'en');
+    expect(delivered?.content).toEqual({});
   });
 });
