@@ -17,6 +17,7 @@ import { PageHeader } from '../../layout/page-header';
 import { AccessTokensPanel } from './access-tokens-panel';
 import { CatalogImportPanel } from './catalog-import/catalog-import-panel';
 import { DeliveryPanel, type DeliveryProject } from './delivery-panel';
+import { TranslationWorkspace } from './translations/translation-workspace';
 import { UiBadge } from '../../ui/badge';
 import {
   UiBreadcrumbItem,
@@ -58,6 +59,7 @@ type Catalog = {
     DeliveryPanel,
     PageHeader,
     RouterLink,
+    TranslationWorkspace,
     LmnDocumentTextIcon,
     UiBadge,
     UiBreadcrumbItem,
@@ -121,10 +123,14 @@ type Catalog = {
           </p>
         </app-page-header>
 
-        <ui-tabs class="mt-10 block" value="overview">
+        <ui-tabs
+          class="mt-10 block"
+          [value]="activeTab()"
+          (valueChange)="onTabChange($event)"
+        >
           <ui-tabs-list aria-label="Project sections">
             <ui-tabs-trigger value="overview">Overview</ui-tabs-trigger>
-            <ui-tabs-trigger value="translations" disabled>
+            <ui-tabs-trigger value="translations">
               Translations
             </ui-tabs-trigger>
             <ui-tabs-trigger value="tokens">Access tokens</ui-tabs-trigger>
@@ -155,7 +161,13 @@ type Catalog = {
 
             <section class="mt-10" [move]="'fade-up'">
               <div class="flex flex-wrap items-center justify-between gap-3">
-                <h2 class="text-xl font-semibold">Catalogs</h2>
+                <div>
+                  <h2 class="text-xl font-semibold">Catalogs</h2>
+                  <p class="text-muted-foreground mt-1 text-sm">
+                    Advanced JSON catalogs. For everyday translation work, use
+                    the Translations tab.
+                  </p>
+                </div>
                 @if (canWrite()) {
                   <app-catalog-import-panel
                     [projectSlug]="project.slug"
@@ -201,10 +213,13 @@ type Catalog = {
             </section>
           </ui-tabs-content>
 
-          <ui-tabs-content value="translations">
-            <p class="text-muted-foreground text-sm">
-              Translation workflows are planned for a later branch.
-            </p>
+          <ui-tabs-content value="translations" class="mt-8">
+            @if (translationsOpened()) {
+              <app-translation-workspace
+                [projectSlug]="project.slug"
+                [canWrite]="canWrite()"
+              />
+            }
           </ui-tabs-content>
 
           <ui-tabs-content value="tokens" class="mt-8">
@@ -255,8 +270,29 @@ export default class ProjectDetailPage {
     ['admin', 'editor'].includes(this.auth.user()?.role ?? ''),
   );
 
+  protected readonly activeTab = signal(
+    readInitialTab(this.route.snapshot.queryParamMap.get('tab')),
+  );
+  /**
+   * The tab primitive keeps every panel mounted, so the workspace is created only once the
+   * Translations tab has actually been opened — a project page visit never pays for a full
+   * workspace request the human did not ask for.
+   */
+  protected readonly translationsOpened = signal(
+    this.activeTab() === 'translations',
+  );
+
   constructor() {
     void this.load();
+  }
+
+  protected onTabChange(value: string | undefined): void {
+    const tab = value ?? 'overview';
+    this.activeTab.set(tab);
+
+    if (tab === 'translations') {
+      this.translationsOpened.set(true);
+    }
   }
 
   protected onProjectUpdated(updated: DeliveryProject): void {
@@ -329,4 +365,11 @@ export default class ProjectDetailPage {
       this.loading.set(false);
     }
   }
+}
+
+const PROJECT_TABS = ['overview', 'translations', 'tokens', 'delivery'];
+
+/** Lets "Back to translations" on the raw JSON editor land on the right tab. */
+function readInitialTab(value: string | null): string {
+  return value && PROJECT_TABS.includes(value) ? value : 'overview';
 }

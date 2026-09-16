@@ -1,16 +1,19 @@
 # Glossa
 
-Glossa is a translation control plane for humans, applications, and AI agents. Humans manage
-catalogs through the web UI; applications consume public, cacheable translation JSON through
-stable Cloudflare URLs; and agents interact through a project-scoped remote MCP server,
-authenticated with the same access token as the machine catalog API.
+Glossa is a translation control plane for humans, applications, and AI agents. Humans edit
+translations through a key-centric, multi-locale workspace — no JSON required; applications
+consume public, cacheable translation JSON through stable Cloudflare URLs; and agents interact
+through a project-scoped remote MCP server, authenticated with the same access token as the
+machine catalog API. All three read and write the same catalogs, so there is no publish or
+synchronization step between them.
 
 The project is in an early production-foundation stage. The current repository implements
-authenticated project CRUD, project locale configuration, JSON catalog editing for the
-default namespace, existing-catalog import for onboarding, ForgeCMS-backed persistence, a
-Cloudflare D1 production target, project access tokens, a machine catalog API with
-optimistic-concurrency writes, public runtime catalog delivery, and a remote MCP server. It
-does not yet implement completeness analysis, AI translation, catalog export, or a CLI.
+authenticated project CRUD, project locale configuration, the human translation workspace,
+raw JSON catalog editing as an advanced escape hatch, existing-catalog import for onboarding,
+ForgeCMS-backed persistence, a Cloudflare D1 production target, project access tokens, a
+machine catalog API with optimistic-concurrency writes, public runtime catalog delivery, and a
+remote MCP server. It does not yet implement renaming or deleting translation keys, richer
+completeness/diff analysis, AI translation, catalog export, or a CLI.
 
 ## Architecture
 
@@ -48,6 +51,36 @@ remote **MCP server** at `/mcp`, giving an AI coding agent `get_project`/`list_c
 `get_catalog`/`get_translation`/`set_translation`/`get_delivery_urls` tools without a
 consumer repository implementing any protocol glue — see `docs/MCP.md`.
 
+## Editing translations
+
+A project's **Translations** tab is the normal way to work on translations, and it is
+key-centric rather than file-centric. The source locale defines the canonical key list; each
+key is shown once, with its value in every configured locale side by side:
+
+```text
+nav.home        en · Source   Home
+Home                     es   Inicio
+3 / 3                    uk   Головна
+```
+
+Search matches translation keys and source values, and the All / Missing / Complete filters
+use one simple rule: a key is complete when every configured locale stores a value for it (an
+empty string counts — clearing a translation is a decision, not a gap). **Add translation**
+creates a new key from the same screen; its source value is required and target values are
+optional, so a key can be added before anyone has translated it.
+
+Saving submits only the locales that actually changed, each with the revision the workspace
+was loaded with. If someone else — another person, or an agent through MCP — changed that
+locale in the meantime, the save is rejected rather than overwriting them, and the workspace
+asks for a reload. Values are written through the same `CatalogService` path as every other
+write, so an edit is visible to the machine API, MCP, and public delivery immediately, with no
+publish step. MessageFormat syntax (`{$count :number}`, `{$year :number useGrouping=never}`)
+is stored exactly as typed and never reformatted.
+
+The per-locale **raw JSON editor** (`/projects/:slug/catalogs/:locale`) is still there,
+clearly marked as advanced — for bulk edits, cleanup, and anything the key-centric workspace
+deliberately does not cover.
+
 ## Migrating an existing project
 
 An application that already has locale JSON files (`en.json`, `es.json`, `uk.json`, ...)
@@ -56,7 +89,7 @@ whole migration happens in the Glossa web UI:
 
 1. **Create a project** and configure its source locale and locale list to match the files
    you have.
-2. Open the project's **Catalogs** tab and click **Import catalogs**.
+2. Open the project's **Overview** tab and click **Import catalogs**.
 3. Drag and drop (or pick) the existing JSON files. The locale is inferred from each
    filename (`en.json` → `en`) and matched against the project's configured locales; an
    unrecognized or non-standard filename can be mapped manually, but never to an
@@ -73,6 +106,8 @@ whole migration happens in the Glossa web UI:
 6. Enable **Public Delivery** if the consuming application should read Glossa at runtime,
    and create a project **access token** under **Access tokens** if agents or CI need the
    machine API or MCP.
+7. From then on, use the **Translations** tab — the imported keys are immediately editable
+   there across every locale.
 
 Nested JSON structure and any MessageFormat syntax in the values (`{$count}`,
 `{$year :number useGrouping=never}`, ...) are preserved exactly — import is JSON ingestion,
