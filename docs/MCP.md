@@ -43,16 +43,17 @@ project.
 
 Reuses the Machine API's two scopes — no new ones for MCP:
 
-| Tool                 | Requires        |
-| -------------------- | --------------- |
-| `get_project`        | `catalog:read`  |
-| `list_catalogs`      | `catalog:read`  |
-| `get_catalog`        | `catalog:read`  |
-| `get_translation`    | `catalog:read`  |
-| `get_delivery_urls`  | `catalog:read`  |
-| `set_translation`    | `catalog:write` |
-| `rename_translation` | `catalog:write` |
-| `delete_translation` | `catalog:write` |
+| Tool                   | Requires        |
+| ---------------------- | --------------- |
+| `get_project`          | `catalog:read`  |
+| `list_catalogs`        | `catalog:read`  |
+| `get_catalog`          | `catalog:read`  |
+| `get_translation`      | `catalog:read`  |
+| `get_delivery_urls`    | `catalog:read`  |
+| `analyze_translations` | `catalog:read`  |
+| `set_translation`      | `catalog:write` |
+| `rename_translation`   | `catalog:write` |
+| `delete_translation`   | `catalog:write` |
 
 A token created with write access is always issued both scopes, matching the Machine API.
 Calling a tool without the required scope does not close the connection — it returns a tool
@@ -162,6 +163,57 @@ revision preflight as `rename_translation` (`CATALOG_REVISION_CONFLICT` on any s
 entry), and `key` must exist in the source locale (`TRANSLATION_NOT_FOUND` otherwise). Reuses
 the same service the Workspace's **Delete key** action calls.
 
+### `analyze_translations`
+
+No arguments. Project-wide translation completeness and key-set diff, derived from the exact
+same domain analysis (`analyzeTranslations` in `translation-tree.ts`) the human **Analysis**
+view uses — never a second, independently maintained comparison. This is a **structural**
+diff of which keys exist where, not a comparison of translated values (a translated string is
+expected to differ from its source):
+
+```json
+{
+  "sourceLocale": "en",
+  "sourceKeys": 1144,
+  "completeKeys": 1020,
+  "incompleteKeys": 124,
+  "locales": [
+    {
+      "locale": "en",
+      "isSource": true,
+      "catalogExists": true,
+      "totalSourceKeys": 1144,
+      "translatedKeys": 1144,
+      "missingKeys": [],
+      "extraKeys": [],
+      "coverage": 1
+    },
+    {
+      "locale": "uk",
+      "isSource": false,
+      "catalogExists": true,
+      "totalSourceKeys": 1144,
+      "translatedKeys": 1041,
+      "missingKeys": ["checkout.payment.title", "nav.changelog"],
+      "extraKeys": [],
+      "coverage": 0.9100104895104895
+    }
+  ]
+}
+```
+
+- `missingKeys` are exact source keys this locale does not have, in source-catalog order.
+- `extraKeys` are exact keys this locale has that the source locale does not define
+  (target-only/orphan keys), in that locale's own catalog order. Always `[]` for the source
+  locale itself.
+- `coverage` is `translatedKeys / totalSourceKeys`, or `null` only when `totalSourceKeys` is
+  `0` (no source catalog/keys yet) — never an invented `100%`/`0%` for that case.
+- A configured locale with no catalog yet reports `catalogExists: false`,
+  `translatedKeys: 0`, every source key as missing, and `coverage: 0`.
+- Full translation **values** are never returned — only keys and counts — so this stays far
+  cheaper than `get_catalog` × every locale for the same question. Read-only; requires
+  `catalog:read`.
+
 ### `get_delivery_urls`
 
 No arguments. The public [delivery](./PUBLIC_DELIVERY.md) URLs for this project, and whether
@@ -221,7 +273,9 @@ again after the token is first created.
 - No `delete_catalog`/`delete_project` tool — those remain human/Machine-API-only operations;
   `rename_translation`/`delete_translation` operate on one key, never a whole catalog.
 - No bulk rename/delete, and no cleanup tool for a target-only key the source locale never
-  defined — both are deliberately deferred.
+  defined — `analyze_translations` reports extra/target-only keys but never deletes or
+  migrates them; that cleanup remains deliberately deferred.
 - No project/user/token-management tools — token lifecycle stays on the human UI and the
   Machine API.
-- No completeness/missing-key/diff tools yet — those depend on a later Glossa milestone.
+- No quality/translation-memory scoring — `analyze_translations` reports structural key
+  presence only, never a linguistic quality or confidence score.

@@ -92,6 +92,46 @@ Glossa is a single Analog.js application backed by ForgeCMS 0.4.x public npm pac
     human-workspace/MCP-only in this milestone.
   - Deliberately deferred: target-only orphan-key cleanup, bulk rename/delete, undo/history,
     audit log, and a "move key" UI distinct from rename.
+- **Completeness / Diff / Missing Keys V2 — DONE.** Project-wide translation-completeness and
+  structural key-set diff, for humans (Analysis mode in the Translations tab) and AI agents
+  (`analyze_translations` over MCP), both reading the exact same domain/service layer as each
+  other and as the Translation Workspace.
+  - **Domain**: `analyzeTranslations` in `src/server/domain/translation-tree.ts`, built on the
+    existing `flattenCatalogLeaves`/`toTranslationMap`/`buildTranslationEntries`/
+    `summarizeTranslationEntries` rather than a second recursive catalog walker — the Workspace
+    and Analysis therefore agree on exactly the same addressable-key semantics (an unsafe or
+    dot-containing stored segment is skipped identically on both surfaces). Per configured
+    locale: `catalogExists`, `totalSourceKeys`, `translatedKeys`, `missingKeys` (exact source
+    keys absent, in source-catalog order), `extraKeys` (exact target-only keys, in that
+    locale's own catalog order — never deleted, never counted toward `totalSourceKeys`), and
+    `coverage` (`translatedKeys / totalSourceKeys`, or `null` — never an invented percentage —
+    only when there are zero source keys). The source locale always reports `missingKeys: []`
+    and `extraKeys: []` relative to itself. Project-wide `completeKeys`/`incompleteKeys` reuse
+    `buildTranslationEntries`/`summarizeTranslationEntries` directly rather than a second
+    "complete" definition. Diff is **structural** (key presence), never a comparison of
+    translated values.
+  - **Service**: `getTranslationAnalysis` in
+    `src/server/services/translation-analysis.service.ts` — one `getProjectBySlug` +
+    `loadCatalogs` (the same load the Workspace uses), then an in-memory comparison; no
+    per-key or per-locale request, no new storage, no persisted/cached analysis.
+  - **Human API**: `GET /api/projects/:slug/translations/analysis`, same `requireUser`
+    boundary as the Workspace GET — `admin`/`editor`/`viewer` read, unauthenticated and machine
+    project tokens rejected, read-only (no mutation, no query parameters).
+  - **MCP**: `analyze_translations`, no arguments (project identity comes from the token, like
+    every other tool), requires `catalog:read`, calls the exact same service as the human API.
+    Returns keys and counts, never full catalog values — far cheaper than `get_catalog` once
+    per locale for the same question.
+  - **UI**: a lightweight Workspace/Analysis switch inside the existing Translations tab (a
+    plain segmented button group, not a nested tabset, and not a second top-level project
+    tab) — Workspace remains the default. Analysis shows a compact project summary, a
+    per-locale coverage list (a simple CSS progress bar plus explicit fraction/count text, no
+    chart library, no color-only signal), and, per selected locale, its exact missing and
+    extra keys. Clicking a missing key switches back to the one Workspace editor with that key
+    already selected — no second translation editor exists. Extra keys are listed with an
+    explanation and a link to the raw JSON catalog; no delete action exists for them yet.
+  - Deliberately deferred: target-only orphan-key cleanup/deletion, a translation-quality or
+    confidence score of any kind, and a Machine API analysis endpoint (MCP is the agent-facing
+    surface for this).
 - Project access tokens: `admin`-only create/list/revoke/delete
   (`/api/projects/:slug/tokens`), backed by Forge's `ApiKeyAuthAdapter` (prefix `glossa`,
   `glossa_<id>_<secret>`), bound to exactly one project via trusted `metadata.projectId`.
@@ -121,11 +161,12 @@ Glossa is a single Analog.js application backed by ForgeCMS 0.4.x public npm pac
 - Remote MCP server at `POST/GET/DELETE /mcp` (`@modelcontextprotocol/server` v2, Streamable
   HTTP, stateless — a fresh `McpServer` per request), authenticated with the same project
   access token as the machine API (`requireProjectMachineContext`, reused as-is — no
-  MCP-specific auth path). Six tools: `get_project`, `list_catalogs`, `get_catalog`,
-  `get_translation`, `set_translation`, `get_delivery_urls`, scoped by the same
-  `catalog:read`/`catalog:write`. `set_translation` reuses the Machine API's
-  `saveCatalogWithPrecondition` (`expectedRevision` → `If-Match`), so a stale agent write is
-  rejected exactly like a stale machine `PUT`. See `docs/MCP.md`.
+  MCP-specific auth path). The server exposes project-scoped translation tools including
+  `get_project`, `list_catalogs`, `get_catalog`, `get_translation`, `set_translation`,
+  `rename_translation`, `delete_translation`, `analyze_translations`, and
+  `get_delivery_urls`, scoped by the same `catalog:read`/`catalog:write`. `set_translation`
+  reuses the Machine API's `saveCatalogWithPrecondition` (`expectedRevision` → `If-Match`), so a
+  stale agent write is rejected exactly like a stale machine `PUT`. See `docs/MCP.md`.
 
 - Project CRUD with required name, unique slug, source locale, and locale list validation.
 - JSON catalog list/get/save/delete for the default internal namespace.
@@ -173,14 +214,15 @@ Project access tokens persist in Forge's own internal `_forge_api_keys` collecti
 
 ## Deferred
 
-Richer completeness/diff analysis, catalog export, AI translation, translation memory, GitHub
-integration, teams, billing, OAuth, comments, review workflow, namespaces UI, and a
-CLI/repository-sync layer are intentionally deferred. Target-locale keys the source locale does
-not define are left stored and untouched; the workspace only reports how many exist per locale,
-and cleaning them up (target-only orphan cleanup) remains a raw-JSON task — Translation Key
-Lifecycle V1 intentionally does not solve this, only canonical-source-key rename/delete. Also
-still deferred: bulk rename/delete, undo/history, an audit log, and a "move key" UI distinct
-from rename.
+Catalog export, AI translation, translation memory, GitHub integration, teams, billing, OAuth,
+comments, review workflow, namespaces UI, and a CLI/repository-sync layer are intentionally
+deferred. Target-locale keys the source locale does not define are left stored and untouched;
+Analysis reports them exactly (which keys, in which locale) and the Workspace still only
+counts them as a diagnostic, but cleaning them up (target-only orphan cleanup) remains a
+raw-JSON task — neither Translation Key Lifecycle V1 nor Completeness/Diff V2 solves this, only
+surfaces it. Also still deferred: bulk rename/delete, undo/history, an audit log, a "move key"
+UI distinct from rename, and any translation-quality/confidence score (Analysis reports factual
+coverage only).
 
 ## Testing
 
@@ -205,18 +247,20 @@ API, and MCP. Building a real-D1 Vitest harness remains future infrastructure wo
 
 ## Next Milestone Candidates
 
-**Completeness / Diff / Missing Keys V2** — a richer project-wide analysis than the single "a
-value exists in every configured locale" rule the Translation Workspace introduced, building on
-the Workspace plus the full translation key lifecycle (create/edit/rename/delete) now in place.
+**Volt UI: first real consumer / dogfood** — recommended next, ahead of AI translation or any
+other major Glossa feature. See "Still Open" below.
 
 ## Still Open
 
 Volt UI: first real consumer / dogfood — planned after catalog import and not yet done. With
-existing-catalog import in place, an existing project's `en.json`/`es.json`/`uk.json` no
-longer need a script to reach Glossa —
+existing-catalog import, key lifecycle, and completeness/diff analysis all in place, an
+existing project's `en.json`/`es.json`/`uk.json` no longer need a script to reach Glossa —
 Volt UI itself should only need an Etyma upgrade, `defineRemoteI18n`/`createHttpMessageLoader`,
 and a Glossa base URL/token, not a migration step of its own. Point its runtime i18n loader
 at a public Glossa delivery URL and its AI agents at the Glossa MCP endpoint, and see whether
-that integration genuinely stays as small as the import milestone was designed to make it.
+that integration genuinely stays as small as the import milestone was designed to make it. This
+is the recommended next milestone, before AI translation, quality scoring, translation memory,
+review workflows, or orphan-key cleanup — validating Glossa's UI, Public Delivery, Etyma remote
+catalogs, MCP, and Analysis against a real external project first.
 
 Later: catalog export. Later still: CLI / repository pull-push synchronization.

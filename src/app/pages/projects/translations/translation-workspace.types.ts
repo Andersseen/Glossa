@@ -88,3 +88,32 @@ export type TranslationLifecycleResponse = {
   results: TranslationLifecycleWriteResult[];
   catalogs: Record<string, TranslationCatalogState>;
 };
+
+/**
+ * The wire shape of `/api/projects/:slug/translations/analysis` — the same structural key-set
+ * diff `analyze_translations` returns over MCP. `coverage` is `null` only when the source locale
+ * has no catalog/keys yet; everywhere else it mirrors `translatedKeys / totalSourceKeys`.
+ */
+export type TranslationLocaleAnalysis = {
+  locale: string;
+  isSource: boolean;
+  catalogExists: boolean;
+  totalSourceKeys: number;
+  translatedKeys: number;
+  missingKeys: string[];
+  extraKeys: string[];
+  coverage: number | null;
+};
+
+export type TranslationAnalysis = {
+  sourceLocale: string;
+  sourceKeys: number;
+  completeKeys: number;
+  incompleteKeys: number;
+  locales: TranslationLocaleAnalysis[];
+};
+
+export type TranslationAnalysisResponse = {
+  project: TranslationWorkspaceProject;
+  analysis: TranslationAnalysis;
+};

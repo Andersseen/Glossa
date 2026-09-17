@@ -1,5 +1,6 @@
 import type { CatalogContent } from './catalog';
 import {
+  analyzeTranslations,
   buildTranslationEntries,
   buildTranslationEntry,
   countTargetOnlyKeys,
@@ -201,5 +202,183 @@ describe('countTargetOnlyKeys', () => {
         }),
       ),
     ).toEqual({ es: 2 });
+  });
+});
+
+describe('analyzeTranslations', () => {
+  it('reports the source locale as fully covered with no missing/extra keys', () => {
+    const analysis = analyzeTranslations(
+      'en',
+      ['en'],
+      contentsOf({ en: source }),
+    );
+
+    expect(analysis.sourceKeys).toBe(4);
+    expect(analysis.locales[0]).toEqual({
+      locale: 'en',
+      isSource: true,
+      catalogExists: true,
+      totalSourceKeys: 4,
+      translatedKeys: 4,
+      missingKeys: [],
+      extraKeys: [],
+      coverage: 1,
+    });
+  });
+
+  it('reports a target locale missing one key, in source order', () => {
+    const analysis = analyzeTranslations(
+      'en',
+      ['en', 'es'],
+      contentsOf({
+        en: { nav: { home: 'Home', docs: 'Docs' }, title: 'Glossa' },
+        es: { nav: { home: 'Inicio' }, title: 'Glossa' },
+      }),
+    );
+
+    const es = analysis.locales.find((locale) => locale.locale === 'es');
+    expect(es).toMatchObject({
+      catalogExists: true,
+      totalSourceKeys: 3,
+      translatedKeys: 2,
+      missingKeys: ['nav.docs'],
+      extraKeys: [],
+      coverage: 2 / 3,
+    });
+  });
+
+  it('reports several missing keys in source-catalog order', () => {
+    const analysis = analyzeTranslations(
+      'en',
+      ['en', 'es'],
+      contentsOf({
+        en: { a: 'A', b: 'B', c: 'C' },
+        es: {},
+      }),
+    );
+
+    const es = analysis.locales.find((locale) => locale.locale === 'es');
+    expect(es?.missingKeys).toEqual(['a', 'b', 'c']);
+    expect(es?.translatedKeys).toBe(0);
+    expect(es?.coverage).toBe(0);
+  });
+
+  it('treats a missing target catalog as every source key missing, with zero coverage', () => {
+    const analysis = analyzeTranslations(
+      'en',
+      ['en', 'uk'],
+      contentsOf({ en: { nav: { home: 'Home' } } }),
+    );
+
+    const uk = analysis.locales.find((locale) => locale.locale === 'uk');
+    expect(uk).toEqual({
+      locale: 'uk',
+      isSource: false,
+      catalogExists: false,
+      totalSourceKeys: 1,
+      translatedKeys: 0,
+      missingKeys: ['nav.home'],
+      extraKeys: [],
+      coverage: 0,
+    });
+  });
+
+  it('lists a single target-only key as extra, not missing', () => {
+    const analysis = analyzeTranslations(
+      'en',
+      ['en', 'es'],
+      contentsOf({
+        en: { nav: { home: 'Home' } },
+        es: { nav: { home: 'Inicio' }, legacy: { banner: 'Viejo' } },
+      }),
+    );
+
+    const es = analysis.locales.find((locale) => locale.locale === 'es');
+    expect(es?.missingKeys).toEqual([]);
+    expect(es?.extraKeys).toEqual(['legacy.banner']);
+    expect(es?.coverage).toBe(1);
+  });
+
+  it('lists several target-only keys in the target catalog’s own order', () => {
+    const analysis = analyzeTranslations(
+      'en',
+      ['en', 'es'],
+      contentsOf({
+        en: { nav: { home: 'Home' } },
+        es: {
+          zeta: 'Z',
+          nav: { home: 'Inicio' },
+          alpha: 'A',
+        },
+      }),
+    );
+
+    const es = analysis.locales.find((locale) => locale.locale === 'es');
+    expect(es?.extraKeys).toEqual(['zeta', 'alpha']);
+  });
+
+  it('counts an empty string target value as translated, not missing', () => {
+    const analysis = analyzeTranslations(
+      'en',
+      ['en', 'es'],
+      contentsOf({ en: { nav: { home: 'Home' } }, es: { nav: { home: '' } } }),
+    );
+
+    const es = analysis.locales.find((locale) => locale.locale === 'es');
+    expect(es?.missingKeys).toEqual([]);
+    expect(es?.translatedKeys).toBe(1);
+    expect(es?.coverage).toBe(1);
+  });
+
+  it('reports a null coverage, not a division by zero, when the source catalog does not exist', () => {
+    const analysis = analyzeTranslations(
+      'en',
+      ['en', 'es'],
+      contentsOf({ es: { nav: { home: 'Inicio' } } }),
+    );
+
+    expect(analysis.sourceKeys).toBe(0);
+
+    const en = analysis.locales.find((locale) => locale.locale === 'en');
+    expect(en).toEqual({
+      locale: 'en',
+      isSource: true,
+      catalogExists: false,
+      totalSourceKeys: 0,
+      translatedKeys: 0,
+      missingKeys: [],
+      extraKeys: [],
+      coverage: null,
+    });
+
+    const es = analysis.locales.find((locale) => locale.locale === 'es');
+    expect(es).toMatchObject({
+      catalogExists: true,
+      totalSourceKeys: 0,
+      translatedKeys: 0,
+      missingKeys: [],
+      // Nothing is "extra" against an undefined source key set either — there is nothing to diff.
+      extraKeys: ['nav.home'],
+      coverage: null,
+    });
+  });
+
+  it('derives project-wide complete/incomplete counts across multiple locales independently', () => {
+    const analysis = analyzeTranslations(
+      'en',
+      ['en', 'es', 'uk'],
+      contentsOf({
+        en: { a: 'A', b: 'B', c: 'C' },
+        es: { a: 'A', b: 'B' },
+        uk: { a: 'A', c: 'C' },
+      }),
+    );
+
+    const es = analysis.locales.find((locale) => locale.locale === 'es');
+    const uk = analysis.locales.find((locale) => locale.locale === 'uk');
+    expect(es?.missingKeys).toEqual(['c']);
+    expect(uk?.missingKeys).toEqual(['b']);
+    expect(analysis.completeKeys).toBe(1);
+    expect(analysis.incompleteKeys).toBe(2);
   });
 });

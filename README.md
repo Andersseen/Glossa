@@ -8,12 +8,13 @@ machine catalog API. All three read and write the same catalogs, so there is no 
 synchronization step between them.
 
 The project is in an early production-foundation stage. The current repository implements
-authenticated project CRUD, project locale configuration, the human translation workspace,
-raw JSON catalog editing as an advanced escape hatch, existing-catalog import for onboarding,
-ForgeCMS-backed persistence, a Cloudflare D1 production target, project access tokens, a
-machine catalog API with optimistic-concurrency writes, public runtime catalog delivery, and a
-remote MCP server. It does not yet implement renaming or deleting translation keys, richer
-completeness/diff analysis, AI translation, catalog export, or a CLI.
+authenticated project CRUD, project locale configuration, the human translation workspace
+(create/edit/rename/delete a key), raw JSON catalog editing as an advanced escape hatch,
+existing-catalog import for onboarding, project-wide translation completeness and key-set diff
+analysis, ForgeCMS-backed persistence, a Cloudflare D1 production target, project access
+tokens, a machine catalog API with optimistic-concurrency writes, public runtime catalog
+delivery, and a remote MCP server. It does not yet implement AI translation, translation
+memory, review workflows, target-only orphan-key cleanup, catalog export, or a CLI.
 
 ## Architecture
 
@@ -47,10 +48,10 @@ curl -s \
 A project explicitly opted into **public delivery** exposes its catalogs as unauthenticated,
 cacheable JSON at stable URLs (`/i18n/:slug/manifest.json`, `/i18n/:slug/:locale.json`) — see
 `docs/PUBLIC_DELIVERY.md`. The same project access token above also authenticates Glossa's
-remote **MCP server** at `/mcp`, giving an AI coding agent `get_project`/`list_catalogs`/
-`get_catalog`/`get_translation`/`set_translation`/`rename_translation`/`delete_translation`/
-`get_delivery_urls` tools without a consumer repository implementing any protocol glue — see
-`docs/MCP.md`.
+remote **MCP server** at `/mcp`, giving an AI coding agent project-scoped translation tools —
+reading, writing, renaming and deleting keys, reading delivery URLs, and analyzing project-wide
+completeness (`analyze_translations`) — without a consumer repository implementing any protocol
+glue itself. See `docs/MCP.md` for the full tool list.
 
 ## Editing translations
 
@@ -105,6 +106,31 @@ change, so they are immediately visible to the raw JSON editor, the machine API,
 enabled) public delivery — no publish step, no second concurrency model. Renaming or deleting a
 key is a structural, cross-locale change, so it is deliberately a dedicated action, not part of
 the value-edit save.
+
+## Analyzing translation completeness
+
+The Translations tab has a lightweight **Workspace / Analysis** switch — Workspace stays the
+default surface for everyday editing; **Analysis** is a supplementary, read-only view of
+project-wide completeness, derived from the same catalogs, with no separate storage:
+
+```text
+Locale       Coverage      Translated      Missing      Extra
+English      100%          1144 / 1144     0            —
+Español       97%          1110 / 1144     34           2
+Українська    91%          1041 / 1144     103          0
+```
+
+Coverage is a **key-set diff**, not a comparison of translated values — a translated string is
+expected to differ from its source, so Glossa never flags `en: "Home"` / `es: "Inicio"` as a
+mismatch. The source locale defines the canonical key list; `coverage` is
+`translated keys / source keys` (`null`, not an invented `100%`, when there is no source
+catalog yet), and a target locale's **extra/target-only keys** — ones it has that the source
+locale does not define — are listed separately and never enlarge that denominator. Selecting a
+locale reveals its exact missing and extra keys; clicking a missing key returns to the
+Workspace with that key already selected, ready to translate. No cleanup action exists for
+extra keys yet — they stay stored and editable in the raw JSON catalog, same as before this
+view existed. The same analysis is available to AI agents over MCP as `analyze_translations` —
+see `docs/MCP.md`.
 
 ## Migrating an existing project
 

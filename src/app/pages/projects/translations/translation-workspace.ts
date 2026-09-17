@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   inject,
   input,
   signal,
@@ -279,8 +280,16 @@ const FILTERS: { value: TranslationFilter; label: string }[] = [
 export class TranslationWorkspace implements OnInit {
   readonly projectSlug = input.required<string>();
   readonly canWrite = input(false);
+  /**
+   * A key the Analysis mode asked to jump to (e.g. a missing key a human clicked). Wrapped with a
+   * `token` rather than just a key string so the same key can be requested twice in a row and
+   * still re-select it — two writes of an identical primitive would not re-trigger the effect
+   * below.
+   */
+  readonly focusRequest = input<{ key: string; token: number } | null>(null);
 
   private readonly http = inject(HttpClient);
+  private appliedFocusToken: number | null = null;
 
   protected readonly filters = FILTERS;
 
@@ -375,6 +384,23 @@ export class TranslationWorkspace implements OnInit {
         `${locale} has ${count} ${count === 1 ? 'key' : 'keys'} not present in the source locale`,
     ),
   );
+
+  constructor() {
+    effect(() => {
+      const request = this.focusRequest();
+
+      if (
+        !request ||
+        request.token === this.appliedFocusToken ||
+        !this.entries().some((entry) => entry.key === request.key)
+      ) {
+        return;
+      }
+
+      this.appliedFocusToken = request.token;
+      this.select(request.key);
+    });
+  }
 
   /** Not the constructor: `projectSlug` is a required input and is only readable from here on. */
   ngOnInit(): void {

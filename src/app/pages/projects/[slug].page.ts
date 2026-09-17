@@ -17,7 +17,7 @@ import { PageHeader } from '../../layout/page-header';
 import { AccessTokensPanel } from './access-tokens-panel';
 import { CatalogImportPanel } from './catalog-import/catalog-import-panel';
 import { DeliveryPanel, type DeliveryProject } from './delivery-panel';
-import { TranslationWorkspace } from './translations/translation-workspace';
+import { TranslationsPanel } from './translations/translations-panel';
 import { UiBadge } from '../../ui/badge';
 import {
   UiBreadcrumbItem,
@@ -59,7 +59,7 @@ type Catalog = {
     DeliveryPanel,
     PageHeader,
     RouterLink,
-    TranslationWorkspace,
+    TranslationsPanel,
     LmnDocumentTextIcon,
     UiBadge,
     UiBreadcrumbItem,
@@ -215,7 +215,7 @@ type Catalog = {
 
           <ui-tabs-content value="translations" class="mt-8">
             @if (translationsOpened()) {
-              <app-translation-workspace
+              <app-translations-panel
                 [projectSlug]="project.slug"
                 [canWrite]="canWrite()"
               />
