@@ -32,6 +32,35 @@ export type TranslationSummary = {
 };
 
 /**
+ * One locale's structural diff against the source locale's key set. `coverage` is `null` only
+ * when `totalSourceKeys` is `0` — an empty/nonexistent source has nothing to be a fraction of, so
+ * this deliberately avoids inventing `100%` (or `0%`) for it. Everywhere else `coverage` is
+ * `translatedKeys / totalSourceKeys`; it is provided for display convenience only — `translatedKeys`
+ * and `totalSourceKeys` are the authoritative values.
+ */
+export type TranslationLocaleAnalysis = {
+  locale: string;
+  /** The source locale never has missing/extra keys relative to itself; `extraKeys` is always `[]` for it. */
+  isSource: boolean;
+  catalogExists: boolean;
+  totalSourceKeys: number;
+  translatedKeys: number;
+  /** Source keys absent from this locale, in source-catalog order. */
+  missingKeys: string[];
+  /** Keys this locale has that the source locale does not define, in this locale's own catalog order. */
+  extraKeys: string[];
+  coverage: number | null;
+};
+
+export type TranslationAnalysis = {
+  sourceLocale: string;
+  sourceKeys: number;
+  completeKeys: number;
+  incompleteKeys: number;
+  locales: TranslationLocaleAnalysis[];
+};
+
+/**
  * Depth-first flattening of a stored nested catalog into addressable dot-path leaves, preserving
  * the catalog's own key order — so a subtree stays contiguous and the workspace list reads in the
  * order the catalog was authored, without a sort that would scatter it.
@@ -162,6 +191,104 @@ export function countTargetOnlyKeys(
   }
 
   return counts;
+}
+
+/**
+ * The project-wide key-set diff: for every configured locale, exactly which source keys it is
+ * missing and which keys it has that the source locale does not define — not a comparison of
+ * translated values, which are expected to differ. The source locale is canonical: its keys (in
+ * its own catalog order, via `flattenCatalogLeaves`) are the only ones that count toward
+ * `totalSourceKeys`/`coverage`, and a target-only key never enlarges that denominator.
+ *
+ * `completeKeys`/`incompleteKeys` reuse `buildTranslationEntries`/`summarizeTranslationEntries`
+ * rather than a second definition of "complete" — the same one key set, walked once here and once
+ * there, would eventually drift.
+ */
+export function analyzeTranslations(
+  sourceLocale: string,
+  locales: readonly string[],
+  contents: ReadonlyMap<string, CatalogContent>,
+): TranslationAnalysis {
+  const sourceContent = contents.get(sourceLocale);
+  const sourceKeys = sourceContent
+    ? flattenCatalogLeaves(sourceContent).map((leaf) => leaf.key)
+    : [];
+  const sourceKeySet = new Set(sourceKeys);
+
+  const localeAnalyses = locales.map((locale) =>
+    analyzeLocale(
+      locale,
+      locale === sourceLocale,
+      sourceKeys,
+      sourceKeySet,
+      contents.get(locale),
+    ),
+  );
+
+  const summary = summarizeTranslationEntries(
+    buildTranslationEntries(sourceLocale, locales, contents),
+  );
+
+  return {
+    sourceLocale,
+    sourceKeys: sourceKeys.length,
+    completeKeys: summary.completeKeys,
+    incompleteKeys: summary.missingKeys,
+    locales: localeAnalyses,
+  };
+}
+
+function analyzeLocale(
+  locale: string,
+  isSource: boolean,
+  sourceKeys: readonly string[],
+  sourceKeySet: ReadonlySet<string>,
+  content: CatalogContent | undefined,
+): TranslationLocaleAnalysis {
+  const totalSourceKeys = sourceKeys.length;
+
+  if (!content) {
+    return {
+      locale,
+      isSource,
+      catalogExists: false,
+      totalSourceKeys,
+      translatedKeys: 0,
+      missingKeys: [...sourceKeys],
+      extraKeys: [],
+      coverage: totalSourceKeys === 0 ? null : 0,
+    };
+  }
+
+  const targetMap = toTranslationMap(content);
+  const missingKeys: string[] = [];
+  let translatedKeys = 0;
+
+  for (const key of sourceKeys) {
+    if (targetMap.has(key)) {
+      translatedKeys += 1;
+    } else {
+      missingKeys.push(key);
+    }
+  }
+
+  // Target-only keys are listed in this catalog's own traversal order (the same order
+  // `flattenCatalogLeaves` produces), not sorted — a predictable order without inventing a
+  // second sort rule. The source locale is defined to have none, by construction.
+  const extraKeys = isSource
+    ? []
+    : [...targetMap.keys()].filter((key) => !sourceKeySet.has(key));
+
+  return {
+    locale,
+    isSource,
+    catalogExists: true,
+    totalSourceKeys,
+    translatedKeys,
+    missingKeys,
+    extraKeys,
+    coverage: totalSourceKeys === 0 ? null : translatedKeys / totalSourceKeys,
+  };
 }
 
 function toLocaleMaps(

@@ -197,7 +197,7 @@ describe('MCP auth boundary', () => {
 });
 
 describe('MCP tool discovery', () => {
-  it('lists all eight tools, none accepting a project-selecting argument', async () => {
+  it('lists all nine tools, none accepting a project-selecting argument', async () => {
     const cms = await getCmsRuntime();
     const project = await createProject(cms, {
       name: 'Volt UI',
@@ -214,6 +214,7 @@ describe('MCP tool discovery', () => {
     const { tools } = await client.listTools();
 
     expect(tools.map((tool) => tool.name).sort()).toEqual([
+      'analyze_translations',
       'delete_translation',
       'get_catalog',
       'get_delivery_urls',
@@ -986,5 +987,169 @@ describe('MCP lifecycle operations sync with the human workspace and public deli
 
     const delivered = await getPublicCatalog(cms, project.slug, 'en');
     expect(delivered?.content).toEqual({});
+  });
+});
+
+describe('MCP analyze_translations', () => {
+  it('succeeds for a read-only token and reports missing/extra keys per locale', async () => {
+    const cms = await getCmsRuntime();
+    const project = await createProject(cms, {
+      name: 'Volt UI',
+      slug: 'volt-ui-analyze-read-only',
+      sourceLocale: 'en',
+      locales: ['en', 'es', 'uk'],
+    });
+    await saveCatalog(cms, project.slug, 'en', {
+      nav: { home: 'Home', docs: 'Documentation' },
+    });
+    await saveCatalog(cms, project.slug, 'es', {
+      nav: { home: 'Inicio' },
+      legacy: 'Viejo',
+    });
+    const { secret } = await createProjectToken(cms, project, {
+      name: 'Reader',
+      scopes: ['catalog:read'],
+    });
+    const client = await connectClient(secret);
+
+    const result = await client.callTool({
+      name: 'analyze_translations',
+      arguments: {},
+    });
+
+    expect(result.isError).toBeFalsy();
+    const analysis = textOf(result) as {
+      sourceLocale: string;
+      sourceKeys: number;
+      locales: {
+        locale: string;
+        catalogExists: boolean;
+        missingKeys: string[];
+        extraKeys: string[];
+      }[];
+    };
+
+    expect(analysis.sourceLocale).toBe('en');
+    expect(analysis.sourceKeys).toBe(2);
+
+    const es = analysis.locales.find((locale) => locale.locale === 'es');
+    expect(es).toMatchObject({
+      catalogExists: true,
+      missingKeys: ['nav.docs'],
+      extraKeys: ['legacy'],
+    });
+
+    const uk = analysis.locales.find((locale) => locale.locale === 'uk');
+    expect(uk).toMatchObject({
+      catalogExists: false,
+      missingKeys: ['nav.home', 'nav.docs'],
+      extraKeys: [],
+    });
+  });
+
+  // `catalog:read` is the minimum scope a project token can be created with (see
+  // `hasCatalogRead`/`normalizeScopes` in `project-token.ts`: `catalog:write` always implies
+  // `catalog:read`, and no scope grants neither) — so, exactly like every other read-gated tool
+  // in this file, there is no real token this tool's `McpScopeError` guard can be exercised
+  // against. The guard mirrors `get_project`/`get_catalog`'s own `canReadCatalog` check.
+
+  it('derives project identity from the token alone, with no project-selecting argument', async () => {
+    const cms = await getCmsRuntime();
+    const projectA = await createProject(cms, {
+      name: 'Project A',
+      slug: 'analyze-project-a',
+      sourceLocale: 'en',
+      locales: ['en'],
+    });
+    await createProject(cms, {
+      name: 'Project B',
+      slug: 'analyze-project-b',
+      sourceLocale: 'en',
+      locales: ['en'],
+    });
+    await saveCatalog(cms, projectA.slug, 'en', { title: 'A' });
+    const { secret } = await createProjectToken(cms, projectA, {
+      name: 'Agent',
+      scopes: ['catalog:read'],
+    });
+    const client = await connectClient(secret);
+
+    const result = await client.callTool({
+      name: 'analyze_translations',
+      arguments: {},
+    });
+
+    expect(result.isError).toBeFalsy();
+    expect(textOf(result)['sourceKeys']).toBe(1);
+  });
+
+  it('reports a missing catalog as every source key missing, not an error', async () => {
+    const cms = await getCmsRuntime();
+    const project = await createProject(cms, {
+      name: 'Volt UI',
+      slug: 'volt-ui-analyze-missing-catalog',
+      sourceLocale: 'en',
+      locales: ['en', 'uk'],
+    });
+    await saveCatalog(cms, project.slug, 'en', { nav: { home: 'Home' } });
+    const { secret } = await createProjectToken(cms, project, {
+      name: 'Agent',
+      scopes: ['catalog:read'],
+    });
+    const client = await connectClient(secret);
+
+    const result = await client.callTool({
+      name: 'analyze_translations',
+      arguments: {},
+    });
+
+    expect(result.isError).toBeFalsy();
+    const analysis = textOf(result) as {
+      locales: {
+        locale: string;
+        catalogExists: boolean;
+        coverage: number | null;
+      }[];
+    };
+    const uk = analysis.locales.find((locale) => locale.locale === 'uk');
+    expect(uk).toMatchObject({ catalogExists: false, coverage: 0 });
+  });
+
+  it('uses the same analysis service the human API uses, staying in sync with a human edit', async () => {
+    const cms = await getCmsRuntime();
+    const project = await createProject(cms, {
+      name: 'Sync Project',
+      slug: 'analyze-sync-project',
+      sourceLocale: 'en',
+      locales: ['en', 'es'],
+    });
+    await saveCatalog(cms, project.slug, 'en', { nav: { home: 'Home' } });
+    const { secret } = await createProjectToken(cms, project, {
+      name: 'Agent',
+      scopes: ['catalog:read'],
+    });
+    const client = await connectClient(secret);
+
+    const before = await client.callTool({
+      name: 'analyze_translations',
+      arguments: {},
+    });
+    const beforeEs = (
+      textOf(before) as { locales: { locale: string; missingKeys: string[] }[] }
+    ).locales.find((locale) => locale.locale === 'es');
+    expect(beforeEs?.missingKeys).toEqual(['nav.home']);
+
+    // A human creates the key directly via the source-of-truth catalog write — the same write
+    // path the Translation Workspace uses.
+    await saveCatalog(cms, project.slug, 'es', { nav: { home: 'Inicio' } });
+
+    const after = await client.callTool({
+      name: 'analyze_translations',
+      arguments: {},
+    });
+    const afterEs = (
+      textOf(after) as { locales: { locale: string; missingKeys: string[] }[] }
+    ).locales.find((locale) => locale.locale === 'es');
+    expect(afterEs?.missingKeys).toEqual([]);
   });
 });
