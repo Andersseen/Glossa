@@ -238,6 +238,49 @@ export function analyzeTranslations(
   };
 }
 
+/**
+ * How changing a project's source locale changes which keys are canonical. Purely a comparison of
+ * two catalogs' addressable key sets — never of their values, and never a write.
+ */
+export type SourceKeyImpact = {
+  currentSourceKeys: number;
+  nextSourceKeys: number;
+  /** Keys the candidate source defines that the current source does not, in the candidate catalog's own order. */
+  addedCanonicalKeys: string[];
+  /** Keys the current source defines that the candidate source does not, in the current catalog's own order. */
+  removedCanonicalKeys: string[];
+};
+
+/**
+ * Compares the current and candidate source catalogs using the same addressable-key semantics as
+ * the Workspace and `analyzeTranslations` (`flattenCatalogLeaves`, so an unsafe or dot-containing
+ * stored segment is skipped identically). A missing catalog contributes no keys, which is how a
+ * caller previews a candidate that has no catalog yet.
+ *
+ * Ordering is each catalog's own traversal order — the same rule `missingKeys`/`extraKeys` use —
+ * so the result is deterministic for a given pair of catalogs without a second sort rule.
+ */
+export function compareSourceKeySets(
+  current: CatalogContent | undefined,
+  candidate: CatalogContent | undefined,
+): SourceKeyImpact {
+  const currentKeys = current
+    ? flattenCatalogLeaves(current).map((leaf) => leaf.key)
+    : [];
+  const nextKeys = candidate
+    ? flattenCatalogLeaves(candidate).map((leaf) => leaf.key)
+    : [];
+  const currentSet = new Set(currentKeys);
+  const nextSet = new Set(nextKeys);
+
+  return {
+    currentSourceKeys: currentKeys.length,
+    nextSourceKeys: nextKeys.length,
+    addedCanonicalKeys: nextKeys.filter((key) => !currentSet.has(key)),
+    removedCanonicalKeys: currentKeys.filter((key) => !nextSet.has(key)),
+  };
+}
+
 function analyzeLocale(
   locale: string,
   isSource: boolean,

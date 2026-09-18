@@ -3,6 +3,7 @@ import {
   analyzeTranslations,
   buildTranslationEntries,
   buildTranslationEntry,
+  compareSourceKeySets,
   countTargetOnlyKeys,
   flattenCatalogLeaves,
   summarizeTranslationEntries,
@@ -380,5 +381,88 @@ describe('analyzeTranslations', () => {
     expect(uk?.missingKeys).toEqual(['b']);
     expect(analysis.completeKeys).toBe(1);
     expect(analysis.incompleteKeys).toBe(2);
+  });
+});
+
+describe('compareSourceKeySets', () => {
+  it('reports no added or removed keys when the key shape is the same, whatever the values', () => {
+    const impact = compareSourceKeySets(
+      { nav: { home: 'Home' }, title: 'Glossa' },
+      { nav: { home: 'Inicio' }, title: 'Glosa' },
+    );
+
+    expect(impact).toEqual({
+      currentSourceKeys: 2,
+      nextSourceKeys: 2,
+      addedCanonicalKeys: [],
+      removedCanonicalKeys: [],
+    });
+  });
+
+  it('reports keys that would become canonical and keys that would stop being canonical', () => {
+    const impact = compareSourceKeySets(
+      { nav: { home: 'Home', docs: 'Docs' }, legacy: { banner: 'Old' } },
+      { nav: { home: 'Inicio' }, footer: { copyright: 'Derechos' } },
+    );
+
+    expect(impact).toEqual({
+      currentSourceKeys: 3,
+      nextSourceKeys: 2,
+      addedCanonicalKeys: ['footer.copyright'],
+      removedCanonicalKeys: ['nav.docs', 'legacy.banner'],
+    });
+  });
+
+  it("orders each list by its own catalog's traversal order, the same rule missing/extra keys use", () => {
+    const current: CatalogContent = { z: 'z', a: 'a', m: { b: 'b', a: 'a' } };
+    const candidate: CatalogContent = { q: 'q', c: 'c' };
+
+    const first = compareSourceKeySets(current, candidate);
+    const second = compareSourceKeySets(current, candidate);
+
+    expect(first.removedCanonicalKeys).toEqual(['z', 'a', 'm.b', 'm.a']);
+    expect(first.addedCanonicalKeys).toEqual(['q', 'c']);
+    expect(second).toEqual(first);
+  });
+
+  it('treats an empty candidate catalog as a source with no keys', () => {
+    const impact = compareSourceKeySets({ nav: { home: 'Home' } }, {});
+
+    expect(impact).toEqual({
+      currentSourceKeys: 1,
+      nextSourceKeys: 0,
+      addedCanonicalKeys: [],
+      removedCanonicalKeys: ['nav.home'],
+    });
+  });
+
+  it('treats a missing candidate or current catalog as having no keys', () => {
+    expect(compareSourceKeySets({ a: 'A' }, undefined)).toMatchObject({
+      nextSourceKeys: 0,
+      removedCanonicalKeys: ['a'],
+    });
+    expect(compareSourceKeySets(undefined, { a: 'A' })).toMatchObject({
+      currentSourceKeys: 0,
+      addedCanonicalKeys: ['a'],
+    });
+    expect(compareSourceKeySets(undefined, undefined)).toEqual({
+      currentSourceKeys: 0,
+      nextSourceKeys: 0,
+      addedCanonicalKeys: [],
+      removedCanonicalKeys: [],
+    });
+  });
+
+  it('skips an unaddressable stored segment exactly like the Workspace does', () => {
+    const candidate = JSON.parse(
+      '{"nav":{"home":"Inicio"},"flat.key":"skipped"}',
+    ) as CatalogContent;
+
+    expect(compareSourceKeySets({ nav: { home: 'Home' } }, candidate)).toEqual({
+      currentSourceKeys: 1,
+      nextSourceKeys: 1,
+      addedCanonicalKeys: [],
+      removedCanonicalKeys: [],
+    });
   });
 });

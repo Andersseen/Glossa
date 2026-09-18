@@ -10,7 +10,8 @@ synchronization step between them.
 The project is in an early production-foundation stage. The current repository implements
 authenticated project CRUD, project locale configuration, the human translation workspace
 (create/edit/rename/delete a key), raw JSON catalog editing as an advanced escape hatch,
-existing-catalog import for onboarding, project-wide translation completeness and key-set diff
+existing-catalog import for onboarding, editable project settings (including correcting the
+source locale) and safe, admin-only project deletion, project-wide translation completeness and key-set diff
 analysis, ForgeCMS-backed persistence, a Cloudflare D1 production target, project access
 tokens, a machine catalog API with optimistic-concurrency writes, public runtime catalog
 delivery, and a remote MCP server. It does not yet implement AI translation, translation
@@ -132,6 +133,48 @@ extra keys yet — they stay stored and editable in the raw JSON catalog, same a
 view existed. The same analysis is available to AI agents over MCP as `analyze_translations` —
 see `docs/MCP.md`.
 
+## Project settings and deleting a project
+
+Every project has a **Settings** tab (next to Overview, Translations, Access tokens and
+Delivery). `admin` and `editor` can edit; `viewer` sees the same values read-only.
+
+- **Name**, **source locale** and **configured locales** are editable. The **slug** is shown
+  read-only: it appears in public delivery URLs and human routes, and a slug migration is out
+  of scope.
+- **Source locale** is chosen from the project's configured locales only. It decides which
+  translation keys are canonical (the Workspace key list, Analysis, key rename/delete, and the
+  manifests a consuming application inspects), so changing it never moves or rewrites catalog
+  content — only the project record changes, and every surface (Workspace, Analysis, Machine
+  API `GET /project`, MCP `get_project`, the public manifest) reflects it immediately, with no
+  sync step.
+  - A project with **no catalogs yet** can change it freely — the fix for "I created the
+    project with the wrong source locale" before importing anything.
+  - Once **catalogs exist**, the new source locale must have a catalog (the server refuses
+    with `PROJECT_SOURCE_CATALOG_REQUIRED` otherwise, whatever the UI showed). Before saving,
+    Glossa previews the impact — which keys stop being canonical and which become canonical
+    (`GET /api/projects/:slug/source-locale-preview?locale=es`, read-only, using the same
+    key semantics as the Workspace and Analysis) — and asks for an explicit confirmation when
+    that key set changes. The two catalogs are not required to match; differing is often the
+    very thing being fixed. Applications may need to use the same source locale configuration.
+- **Locales** can be added, and removed only when they have no catalog — removing a locale
+  never deletes a catalog (`PROJECT_LOCALE_CONFLICT`).
+- Saving purges the project's cached public delivery manifest and locale URLs.
+
+Under **Danger zone**, an **admin** can **delete the project**. The confirmation shows what
+will be removed (catalogs, configured locales, active access tokens, public delivery status) and
+requires typing the project's slug before **Delete permanently** enables. Deletion removes the
+project **and all of its catalogs**, revokes every access token bound to it, and stops public
+delivery at once (the manifest and locale URLs are explicitly purged from the edge cache, not
+left to expire). Users, sign-in identities, sessions and every other project are untouched.
+Editors, viewers and machine tokens cannot delete a project.
+
+There is no cross-row transaction in Forge/D1, and Glossa does not pretend to have one.
+Deletion runs as separate steps in a fixed order — revoke tokens, delete each catalog, delete the
+project record — and **the project record is never deleted while an owned catalog remains**.
+If a step fails part-way the project is kept, the API answers `500 PROJECT_DELETE_INCOMPLETE`,
+and catalogs already deleted stay deleted (there is no rollback); running the deletion again
+finishes it.
+
 ## Migrating an existing project
 
 An application that already has locale JSON files (`en.json`, `es.json`, `uk.json`, ...)
@@ -139,7 +182,8 @@ does not need a script, a CLI, or a Glossa-specific HTTP client to move them int
 whole migration happens in the Glossa web UI:
 
 1. **Create a project** and configure its source locale and locale list to match the files
-   you have.
+   you have. (If you get the source locale wrong, correct it under **Settings** before
+   importing — no need to recreate the project.)
 2. Open the project's **Overview** tab and click **Import catalogs**.
 3. Drag and drop (or pick) the existing JSON files. The locale is inferred from each
    filename (`en.json` → `en`) and matched against the project's configured locales; an

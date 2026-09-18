@@ -17,6 +17,8 @@ import { PageHeader } from '../../layout/page-header';
 import { AccessTokensPanel } from './access-tokens-panel';
 import { CatalogImportPanel } from './catalog-import/catalog-import-panel';
 import { DeliveryPanel, type DeliveryProject } from './delivery-panel';
+import { ProjectSettingsPanel } from './project-settings-panel';
+import type { Project } from './project.types';
 import { TranslationsPanel } from './translations/translations-panel';
 import { UiBadge } from '../../ui/badge';
 import {
@@ -37,15 +39,6 @@ import {
 } from '../../ui/tabs';
 import { UiSkeleton } from '../../ui/skeleton';
 
-type Project = {
-  id: string;
-  name: string;
-  slug: string;
-  sourceLocale: string;
-  locales: string[];
-  publicDelivery: boolean;
-};
-
 type Catalog = {
   locale: string;
 };
@@ -58,6 +51,7 @@ type Catalog = {
     CatalogImportPanel,
     DeliveryPanel,
     PageHeader,
+    ProjectSettingsPanel,
     RouterLink,
     TranslationsPanel,
     LmnDocumentTextIcon,
@@ -135,6 +129,7 @@ type Catalog = {
             </ui-tabs-trigger>
             <ui-tabs-trigger value="tokens">Access tokens</ui-tabs-trigger>
             <ui-tabs-trigger value="delivery">Delivery</ui-tabs-trigger>
+            <ui-tabs-trigger value="settings">Settings</ui-tabs-trigger>
           </ui-tabs-list>
 
           <ui-tabs-content value="overview" class="mt-8">
@@ -233,6 +228,17 @@ type Catalog = {
               (projectUpdated)="onProjectUpdated($event)"
             />
           </ui-tabs-content>
+
+          <ui-tabs-content value="settings" class="mt-8">
+            @if (settingsOpened()) {
+              <app-project-settings-panel
+                [project]="project"
+                [canWrite]="canWrite()"
+                [catalogLocales]="catalogLocales()"
+                (saved)="onProjectSaved($event)"
+              />
+            }
+          </ui-tabs-content>
         </ui-tabs>
       }
     </app-shell>
@@ -266,6 +272,9 @@ export default class ProjectDetailPage {
       ready: readyLocales.has(locale),
     }));
   });
+  protected readonly catalogLocales = computed(() =>
+    this.catalogs().map((catalog) => catalog.locale),
+  );
   protected readonly canWrite = computed(() =>
     ['admin', 'editor'].includes(this.auth.user()?.role ?? ''),
   );
@@ -282,6 +291,13 @@ export default class ProjectDetailPage {
     this.activeTab() === 'translations',
   );
 
+  /**
+   * Same lazy mount for Settings: its form is only created once the tab is opened, so the
+   * always-mounted tab panels never carry a second, hidden "Name"/"Locale" form alongside the
+   * ones on Overview, Access tokens and the catalog import panel.
+   */
+  protected readonly settingsOpened = signal(this.activeTab() === 'settings');
+
   constructor() {
     void this.load();
   }
@@ -289,6 +305,10 @@ export default class ProjectDetailPage {
   protected onTabChange(value: string | undefined): void {
     const tab = value ?? 'overview';
     this.activeTab.set(tab);
+
+    if (tab === 'settings') {
+      this.settingsOpened.set(true);
+    }
 
     if (tab === 'translations') {
       this.translationsOpened.set(true);
@@ -300,6 +320,20 @@ export default class ProjectDetailPage {
 
     if (current) {
       this.project.set({ ...current, ...updated });
+    }
+  }
+
+  /**
+   * Adopts the saved project everywhere the page reads it (header, Overview, Delivery). A moved
+   * source locale also unmounts the Translations panel, so the next visit to that tab loads a
+   * fresh workspace and analysis for the new canonical source instead of showing the old one.
+   */
+  protected onProjectSaved(saved: Project): void {
+    const previous = this.project();
+    this.project.set(saved);
+
+    if (previous && previous.sourceLocale !== saved.sourceLocale) {
+      this.translationsOpened.set(false);
     }
   }
 
@@ -367,7 +401,13 @@ export default class ProjectDetailPage {
   }
 }
 
-const PROJECT_TABS = ['overview', 'translations', 'tokens', 'delivery'];
+const PROJECT_TABS = [
+  'overview',
+  'translations',
+  'tokens',
+  'delivery',
+  'settings',
+];
 
 /** Lets "Back to translations" on the raw JSON editor land on the right tab. */
 function readInitialTab(value: string | null): string {

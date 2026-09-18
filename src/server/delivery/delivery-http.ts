@@ -1,5 +1,8 @@
 import { createError, getRequestURL, type H3Event } from 'h3';
 
+import { getDeliveryUrls } from './delivery.service';
+import { purgeEdgeCache } from './edge-cache';
+
 /**
  * `/i18n/*` is Glossa's one unauthenticated, publicly-cacheable surface — deliberately not built
  * on `project-http.ts`/`catalog-http.ts` (those exist for the auth-gated human/machine routes) and
@@ -41,4 +44,16 @@ function getSegmentAfter(event: H3Event, marker: string): string {
   }
 
   return decodeURIComponent(value);
+}
+
+/**
+ * Explicitly purges a project's cached manifest and per-locale catalog responses from the edge
+ * cache, so a settings change or a deletion takes effect immediately rather than after the
+ * routes' own `s-maxage` bound. Best-effort and a no-op outside Cloudflare (see `purgeEdgeCache`).
+ */
+export function purgeProjectDeliveryCache(
+  event: H3Event,
+  project: { slug: string; locales: string[] },
+): void {
+  purgeEdgeCache(event, getDeliveryUrls(getRequestURL(event).origin, project));
 }

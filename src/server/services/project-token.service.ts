@@ -102,12 +102,13 @@ export async function deleteProjectToken(
 /**
  * Revokes every active token bound to `projectId` — called when a project is deleted so a
  * dangling token can never remain usable once its project metadata no longer resolves to
- * anything (spec: machine project deletion lifecycle).
+ * anything (spec: machine project deletion lifecycle). Returns how many tokens this call revoked
+ * (already-revoked ones are not counted again).
  */
 export async function revokeAllProjectTokens(
   cms: GlossaCmsRuntime,
   projectId: string,
-): Promise<void> {
+): Promise<number> {
   const adapter = getProjectApiKeyAdapter(cms);
   const keys = await adapter.listApiKeys();
   const owned = keys.filter(
@@ -115,6 +116,8 @@ export async function revokeAllProjectTokens(
   );
 
   await Promise.all(owned.map((key) => adapter.revokeApiKey(key.id)));
+
+  return owned.length;
 }
 
 async function requireOwnedToken(

@@ -132,6 +132,62 @@ Glossa is a single Analog.js application backed by ForgeCMS 0.4.x public npm pac
   - Deliberately deferred: target-only orphan-key cleanup/deletion, a translation-quality or
     confidence score of any kind, and a Machine API analysis endpoint (MCP is the agent-facing
     surface for this).
+- **Project Settings & Lifecycle V1 — DONE.** A human can correct a project's metadata without
+  recreating it, and an admin can deliberately delete a whole project and its catalogs. Triggered
+  by a real onboarding mistake: the `my-blog` project was created with source locale `en` when the
+  application's real source locale is `es`.
+  - **UI**: a **Settings** tab (Overview / Translations / Access tokens / Delivery / Settings) —
+    `project-settings-panel.ts` and `delete-project-panel.ts`, so `[slug].page.ts` stays a thin
+    host. Editable: **name**, **source locale** (a select of the project's configured locales
+    only, shown as `Español / es`), **configured locales** (add; remove only when the locale has
+    no catalog, and never the source). The **slug is read-only** — it appears in public delivery
+    URLs and human routes; slug migration is out of scope. Save state is signal-based
+    (idle → dirty → saving → saved/error, `role="status"` announcements, errors associated with
+    their fields). `admin`/`editor` edit; `viewer` sees the values read-only.
+  - **Source locale change is metadata-only.** `updateProject` writes the project record and
+    nothing else — no catalog is read, written or re-revisioned. Workspace, Analysis, the Machine
+    API `GET /project`, MCP `get_project` and the public manifest all derive the source from that
+    record, so they follow immediately with no sync step (covered end to end in
+    `project-lifecycle-api.spec.ts`).
+  - **Server guarantee** (not just UI): with zero catalogs the change is always allowed; once
+    catalogs exist the new source locale must have one, else `409
+PROJECT_SOURCE_CATALOG_REQUIRED`. The two catalogs are **not** required to match. A candidate
+    that is not a configured locale is a `400` validation error. `PROJECT_LOCALE_CONFLICT`
+    (cannot remove a locale that has a catalog) is unchanged.
+  - **Impact preview**: `GET /api/projects/:slug/source-locale-preview?locale=` (read-only,
+    `requireUser`) → `previewSourceLocaleChange` in `project-settings.service.ts`, built on
+    `compareSourceKeySets` in `translation-tree.ts`, which reuses `flattenCatalogLeaves` (no
+    second catalog walker). Returns key counts and exact `addedCanonicalKeys`/
+    `removedCanonicalKeys`, each in its own catalog's traversal order (same rule as Analysis
+    `missingKeys`/`extraKeys`), plus `canChange`. The UI requires an explicit confirmation when
+    the canonical key set changes, and blocks the save when the candidate has no catalog.
+  - **Deletion**: `DELETE /api/projects/:slug` is **`admin`-only** (`requireAdminUser`; editor,
+    viewer, unauthenticated and machine tokens are refused, and the previous
+    `PROJECT_DELETE_RESTRICTED` "no deletion while catalogs exist" rule is gone). `deleteProject`
+    revokes the project's tokens, deletes every owned catalog, re-checks that none remain, then
+    deletes the project record — **never while an owned catalog remains**. Users, external
+    identities, SSO sessions and other projects are untouched. The response is counts only
+    (`deleted`, `project {id, slug, name}`, `deletedCatalogs`, `revokedTokens`), never catalog
+    content or token secrets.
+  - **No fake atomicity.** Forge/D1 offers no cross-row transaction here (`onDelete: 'restrict'`
+    on `catalogs.project` still protects the record), so none is claimed. A failure part-way
+    throws `ProjectDeleteIncompleteError` → `500 PROJECT_DELETE_INCOMPLETE`: the project is kept,
+    but catalogs already deleted stay deleted and tokens stay revoked — no rollback; re-running
+    the delete finishes it. Tokens are revoked first so a machine writer cannot re-create a
+    catalog mid-deletion. `revokeAllProjectTokens` now returns the number revoked.
+  - **Delivery cache**: `PATCH` (any settings change, including the source locale) and `DELETE`
+    (also after a part-way failure) explicitly purge the project's manifest and locale URLs from
+    the Cloudflare edge cache via `purgeProjectDeliveryCache` — deleted projects stop being
+    served at once rather than after the 30s TTL. After deletion the manifest and locale URLs are
+    `404` regardless (the project no longer resolves).
+  - **Delete UI**: Settings → **Danger zone** → **Delete project** opens the existing drawer as
+    an `alertdialog`, titled and described, showing factual impact
+    (`GET /api/projects/:slug/deletion-impact`, admin-only, counts only — catalogs and their
+    locales, configured locales, active tokens, public delivery). **Delete permanently** stays
+    disabled until the impact has loaded and the exact project slug is typed. On success it
+    navigates to `/projects`, which shows a `role="status"` confirmation (no toast system exists)
+    and no longer lists the project.
+  - Deliberately out of scope: slug migration, project cloning, catalog export, orphan cleanup.
 - Project access tokens: `admin`-only create/list/revoke/delete
   (`/api/projects/:slug/tokens`), backed by Forge's `ApiKeyAuthAdapter` (prefix `glossa`,
   `glossa_<id>_<secret>`), bound to exactly one project via trusted `metadata.projectId`.
@@ -208,7 +264,7 @@ Translation JSON is stored in D1 through ForgeCMS. Glossa does not use R2/S3/obj
 
 Project slugs are protected by a database unique constraint. Catalog identity is protected by a compound unique index on `project`, `locale`, and `namespace`. Catalogs carry a `revision` and `updatedAt`, regenerated on every write.
 
-Project deletion is restricted while catalogs exist. Removing a project locale is rejected when that locale already has catalog content. Project deletion also revokes every access token bound to that project.
+Removing a project locale is rejected when that locale already has catalog content. Project deletion (admin-only) removes the project's catalogs, revokes every access token bound to that project, and only then deletes the project record — as separate writes, not a transaction; see **Project Settings & Lifecycle V1**. Changing a project's source locale rewrites no catalog.
 
 Project access tokens persist in Forge's own internal `_forge_api_keys` collection (never exposed as a Glossa/Forge CRUD collection); Glossa reaches it only through `ApiKeyAuthAdapter`'s own create/list/get/revoke/delete methods.
 
@@ -233,7 +289,7 @@ Every Vitest spec — including the translation workspace, the translation key l
 `vitest-pool-workers` test runtime in this repository. Public delivery and MCP were
 previously verified manually against a real local D1 database (`wrangler pages dev`),
 including the full agent journey. Catalog import was **not** re-verified against a real D1
-database, and neither was the Translation Workspace: `wrangler.jsonc` binds the one real D1 database this repository
+database, and neither were the Translation Workspace, source-locale changes, or project deletion (the ordered catalog-by-catalog delete has only run against the in-memory adapter): `wrangler.jsonc` binds the one real D1 database this repository
 has (`glossa`, a production id, not a disposable/local-only one), and `wrangler pages dev`
 against it would write test projects/catalogs into shared production data; `.dev.vars` also
 has no `BOOTSTRAP_ADMIN_KEY`/`AUTH_SECRET`, and the only interactive sign-in path
@@ -247,20 +303,22 @@ API, and MCP. Building a real-D1 Vitest harness remains future infrastructure wo
 
 ## Next Milestone Candidates
 
-**Volt UI: first real consumer / dogfood** — recommended next, ahead of AI translation or any
-other major Glossa feature. See "Still Open" below.
+**External dogfood: `my-blog` — Astro/SSG Glossa consumer** — recommended next, ahead of AI
+translation or any other major Glossa feature. See "Still Open" below.
 
 ## Still Open
 
-Volt UI: first real consumer / dogfood — planned after catalog import and not yet done. With
-existing-catalog import, key lifecycle, and completeness/diff analysis all in place, an
-existing project's `en.json`/`es.json`/`uk.json` no longer need a script to reach Glossa —
-Volt UI itself should only need an Etyma upgrade, `defineRemoteI18n`/`createHttpMessageLoader`,
-and a Glossa base URL/token, not a migration step of its own. Point its runtime i18n loader
-at a public Glossa delivery URL and its AI agents at the Glossa MCP endpoint, and see whether
-that integration genuinely stays as small as the import milestone was designed to make it. This
-is the recommended next milestone, before AI translation, quality scoring, translation memory,
-review workflows, or orphan-key cleanup — validating Glossa's UI, Public Delivery, Etyma remote
-catalogs, MCP, and Analysis against a real external project first.
+Volt UI's first real consumer integration is **done**: `volt-ui` PR #135
+(`feature/glossa-first-consumer`) merged, moving its runtime i18n onto Glossa through Etyma's
+remote mode. That validated Glossa's Public Delivery, catalog import, MCP and Analysis against a
+real external project, and is no longer pending.
+
+The next external dogfood target is **`my-blog` — an Astro/SSG Glossa consumer**. A static site is
+expected to consume Glossa differently from Volt UI's runtime loading (most likely reading the
+public manifest and locale JSON at build time), and to use the project's real source locale, `es`,
+consistently in its own i18n configuration. Its Glossa project was first created with the wrong
+source locale (`en`); Project Settings now lets that be corrected in place without recreating
+the project. Deployment triggering for static consumers (rebuilding the site when translations
+change) is a separate future concern and not part of Glossa today.
 
 Later: catalog export. Later still: CLI / repository pull-push synchronization.
