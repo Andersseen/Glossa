@@ -34,3 +34,9 @@ function resolveDisplayName(locale: string): string {
     return locale;
   }
 }
+
+/** "Español / es" — the display name and the code together, or just the code when the runtime has no name for it. */
+export function localeOptionLabel(locale: string): string {
+  const name = localeDisplayName(locale);
+  return name === locale ? locale : `${name} / ${locale}`;
+}

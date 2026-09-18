@@ -131,6 +131,23 @@ its writes still advance the revision, so a subsequent stale machine write is st
 `project.service.ts`'s `deleteProject`) — a token can never remain usable against project
 metadata that no longer resolves to anything.
 
+**Project deletion is a project-owned, ordered operation, not a transaction.** `deleteProject`
+revokes the project's tokens, deletes each catalog through the Forge collection API, re-checks
+that none remain, and only then deletes the project record — the record is never deleted while an
+owned catalog remains. Forge/D1 exposes no cross-row transaction here and none is faked: a
+failure part-way throws `ProjectDeleteIncompleteError` (`PROJECT_DELETE_INCOMPLETE`), the project
+is kept, and catalogs/tokens already handled stay handled; deleting again finishes the job. The
+route (`DELETE /api/projects/:slug`, `admin` only) then purges the project's public delivery URLs
+from the edge cache — also after a part-way failure, since some catalogs may already be gone.
+
+**Changing a project's source locale is a metadata change only** (`updateProject`). No catalog is
+read or written; the workspace, analysis, both manifests and MCP all derive the source from the
+project record. With catalogs present, the new source locale must have one
+(`ProjectSourceCatalogRequiredError`), enforced server-side. `project-settings.service.ts` holds
+the read-only impact previews (`previewSourceLocaleChange`, built on `compareSourceKeySets` in
+`translation-tree.ts` → `flattenCatalogLeaves`, so it agrees with the Workspace and Analysis on
+what a key is; `getProjectDeletionImpact`, counts only, no token secrets).
+
 Etyma is reserved for Glossa's own UI/runtime i18n. It should not become catalog-management domain logic, and Glossa-specific product behavior should not move into Etyma.
 
 ## Current Foundation
@@ -143,7 +160,9 @@ Etyma is reserved for Glossa's own UI/runtime i18n. It should not become catalog
 - `users`, `projects`, and `catalogs` are registered with the ForgeCMS typed Local API.
 - Human authentication uses Forge HttpOnly session cookies. Browser code never stores session tokens in localStorage or sessionStorage.
 - `admin` and `editor` may mutate projects/catalogs. `viewer` is read-only.
-- Project deletion and locale removal are restricted when they would silently lose catalog data.
+- Locale removal is restricted when it would silently lose catalog data (`PROJECT_LOCALE_CONFLICT`).
+  Whole-project deletion is a separate, deliberate, `admin`-only operation that removes the
+  project's catalogs and revokes its tokens.
 - Only `admin` may create/list/revoke/delete a project's access tokens; a machine token can
   never manage another token.
 - The machine API lives under `/api/machine/v1/*`, entirely separate from the human

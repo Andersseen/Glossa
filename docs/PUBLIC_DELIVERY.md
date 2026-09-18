@@ -115,9 +115,12 @@ window is the edge cache in front of it:
 - Cloudflare's `caches.default` (Cache API) fronts both routes with `s-maxage=30` — a
   freshly-computed response is reused for at most **30 seconds** before the next request
   recomputes it.
-- Toggling `publicDelivery` (on **or** off) or editing a project's `locales` purges that
-  project's cached manifest/catalog entries immediately — disabling delivery does not wait
-  out the 30-second window; it stops serving the moment the setting is saved.
+- Toggling `publicDelivery` (on **or** off) or editing a project's settings (`locales`,
+  `sourceLocale`, `name` — the manifest carries all of them) purges that project's cached
+  manifest/catalog entries immediately — disabling delivery does not wait out the 30-second
+  window; it stops serving the moment the setting is saved.
+- Deleting a project returns `404` for its manifest and every locale URL at once (the project no
+  longer resolves) and explicitly purges its cached entries rather than waiting out the TTL.
 - A translation content edit (human, Machine API, or MCP) is not explicitly purged — it
   becomes visible within that same bounded 30 seconds.
 

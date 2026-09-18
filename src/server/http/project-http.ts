@@ -9,10 +9,11 @@ import { getCmsRuntime } from '../cms/runtime';
 import { ProjectValidationError } from '../domain/project';
 import {
   isProjectServiceError,
-  ProjectDeleteRestrictedError,
+  ProjectDeleteIncompleteError,
   ProjectLocaleConflictError,
   ProjectNotFoundError,
   ProjectSlugConflictError,
+  ProjectSourceCatalogRequiredError,
 } from '../services/project.service';
 import { sendAuthBoundaryError } from './auth-http';
 import { getCloudflareEnv } from './env';
@@ -67,7 +68,8 @@ function getProjectErrorStatus(
     | ProjectNotFoundError
     | ProjectSlugConflictError
     | ProjectLocaleConflictError
-    | ProjectDeleteRestrictedError
+    | ProjectSourceCatalogRequiredError
+    | ProjectDeleteIncompleteError
     | ProjectValidationError,
 ): number {
   if (error instanceof ProjectNotFoundError) {
@@ -80,9 +82,13 @@ function getProjectErrorStatus(
 
   if (
     error instanceof ProjectLocaleConflictError ||
-    error instanceof ProjectDeleteRestrictedError
+    error instanceof ProjectSourceCatalogRequiredError
   ) {
     return 409;
+  }
+
+  if (error instanceof ProjectDeleteIncompleteError) {
+    return 500;
   }
 
   return 400;

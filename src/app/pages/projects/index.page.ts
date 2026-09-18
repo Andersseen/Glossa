@@ -1,12 +1,13 @@
 import { HttpClient } from '@angular/common/http';
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   computed,
   inject,
   signal,
 } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MOVEMENT_DIRECTIVES } from 'angular-movement';
 import { LmnFolderIcon } from 'lumen-icons/folder';
 import { LmnPlusIcon } from 'lumen-icons/plus';
@@ -67,6 +68,15 @@ type Project = {
           </a>
         }
       </app-page-header>
+
+      @if (deletedProject(); as deleted) {
+        <p
+          class="border-border bg-muted mt-6 rounded-lg border px-4 py-3 text-sm"
+          role="status"
+        >
+          Project <strong>{{ deleted }}</strong> was deleted.
+        </p>
+      }
 
       <div class="mt-10" [move]="'fade-up'">
         @if (loading()) {
@@ -153,7 +163,12 @@ export default class ProjectsIndexPage {
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthClient);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
+  /** Set by the project Settings "Delete project" flow, which lands here with `?deleted=<slug>`. */
+  protected readonly deletedProject = signal(
+    this.route.snapshot.queryParamMap.get('deleted') ?? '',
+  );
   protected readonly newProjectClass = buttonVariants({ variant: 'solid' });
   protected readonly emptyActionClass = buttonVariants({ variant: 'outline' });
   protected readonly projects = signal<Project[]>([]);
@@ -165,6 +180,18 @@ export default class ProjectsIndexPage {
 
   constructor() {
     void this.load();
+
+    // The confirmation is remembered in a signal; drop the query param so a refresh or a shared
+    // link does not repeat a message about something that already happened.
+    afterNextRender(() => {
+      if (this.deletedProject()) {
+        void this.router.navigate([], {
+          queryParams: { deleted: null },
+          queryParamsHandling: 'merge',
+          replaceUrl: true,
+        });
+      }
+    });
   }
 
   private async load(): Promise<void> {
