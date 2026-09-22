@@ -61,7 +61,7 @@
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.1.4",
     "tslib": "^2.3.0",
-    "zod": "^4.4.3"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@analogjs/platform": "^2.7.0",
