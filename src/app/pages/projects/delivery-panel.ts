@@ -17,6 +17,7 @@ import { AuthClient } from '../../auth/auth-client';
 import { UiBadge } from '../../ui/badge';
 import { UiButton } from '../../ui/button';
 import { UiError } from '../../ui/form-field';
+import { DeployHookPanel } from './deploy-hook-panel';
 
 export type DeliveryProject = {
   slug: string;
@@ -34,6 +35,7 @@ type UrlRow = {
 @Component({
   selector: 'app-delivery-panel',
   imports: [
+    DeployHookPanel,
     UiBadge,
     UiButton,
     UiError,
@@ -126,6 +128,8 @@ type UrlRow = {
         }
       </div>
     </section>
+
+    <app-deploy-hook-panel [projectSlug]="projectSlug()" />
 
     <section class="mt-10">
       <h3 class="text-sm font-semibold">MCP / agent access</h3>

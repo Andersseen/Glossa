@@ -188,6 +188,60 @@ PROJECT_SOURCE_CATALOG_REQUIRED`. The two catalogs are **not** required to match
     navigates to `/projects`, which shows a `role="status"` confirmation (no toast system exists)
     and no longer lists the project.
   - Deliberately out of scope: slug migration, project cloning, catalog export, orphan cleanup.
+- **Static Consumer Deploy Hooks V1 — DONE.** Static consumers (Astro SSG, like `my-blog`) bake
+  translations into HTML at build time, so a Glossa edit has to start a new build. Each project
+  can have **zero or one Cloudflare deploy hook** that Glossa POSTs to after every successful
+  logical content change. See `docs/DEPLOY_HOOKS.md`.
+  - **Persistence**: new `deploy_hooks` Forge collection. `project` is a `unique` relation with
+    `onDelete: 'restrict'`, so the database index enforces one hook per project and the project
+    record cannot be deleted while its hook exists. Access is locked to nobody. The collection
+    stores only the last delivery status (`lastAttemptAt`/`lastSuccessAt`/`lastStatusCode`/
+    `lastError`): no history table and no retry queue.
+  - **Secret handling**: the hook URL is a credential. After saving it is never returned. Every
+    response carries a non-reversible mask (`…/deploy_hooks/••••••C123`). The URL is stored
+    **in plain text** in D1; Forge has no field encryption and none is claimed. Validation errors
+    never echo the submitted URL.
+  - **SSRF**: allowlist validation in `src/server/domain/deploy-hook.ts` requires `https:`,
+    exactly `api.cloudflare.com`, the default port, and no credentials, query or fragment. The
+    path must be `/client/v4/…/deploy_hooks/<id>`, which covers both the Pages and Workers Builds
+    shapes. Redirects are not followed.
+  - **Service** (`deploy-hook.service.ts`): configure/replace/enable/disable/remove, masked view,
+    explicit test (waits for the answer), and `triggerProjectDeployHook`, which is a no-op when
+    no hook is configured or it is disabled. Delivery is a `POST` with no body or credentials, a
+    5 second `AbortController` timeout, and any 2xx counts as success. Failures are recorded as
+    `http_error`/`network_error`/`timeout`; response bodies are never read or stored.
+  - **Background delivery**: `scheduleProjectDeployHook` (`http/deploy-hook-http.ts`) runs through
+    `runInBackground` (`http/background.ts`). That helper was extracted from the edge cache's
+    `event.context.waitUntil` code, which now uses it too; outside Cloudflare it lets the
+    promise run to completion. A provider failure never fails, delays or rolls back the content
+    change.
+  - **Trigger matrix, one per logical operation** (wired at the route, never in the catalog
+    write primitives): workspace edit/create, key rename/delete, import commit (not preview),
+    raw catalog save/delete, Machine `PUT`, MCP `set_translation`/`rename_translation`/
+    `delete_translation`, and a project `PATCH` that changes `sourceLocale` or `locales`.
+    Operations that return per-catalog results trigger only if at least one catalog was actually
+    written (`hasCommittedWrite`), so refusals and conflicts trigger nothing. MCP tools do not
+    know about hooks: the per-request server receives one `onProjectChanged` callback. Nothing
+    triggers on name-only or `publicDelivery` changes, token operations, reads/analysis, or hook
+    configuration. Project deletion removes the hook and does not call it.
+  - **Admin API**: `GET/PUT/DELETE /api/projects/:slug/deploy-hook` and `POST …/deploy-hook/test`,
+    all `admin`-only (`requireAdminUser`/`requireAdminReadUser`). Editors, viewers, anonymous
+    callers and machine tokens are refused, and the project comes from the URL only.
+  - **UI**: a **Static site rebuild** section inside the existing **Delivery** tab (no new tab)
+    in `deploy-hook-panel.ts`. It covers configuring in a titled drawer with a secret warning and
+    an associated error, the masked endpoint, last trigger/result, **Test hook** with
+    `aria-live` states (Testing… / Deployment triggered. / failed / timed out, always adding
+    "Your translations were saved normally."), Disable/Enable, Replace, and Remove with
+    confirmation. Non-admins see a one-line note only. The deletion-impact dialog lists the hook
+    when one exists.
+  - **Tests**: `deploy-hook.spec.ts` (URL validation and masking), `deploy-hook.service.spec.ts`
+    (persistence, uniqueness, 2xx/4xx/5xx/network/timeout, status model, project deletion) and
+    `deploy-hook-api.spec.ts`. The API spec mounts real handlers with a `waitUntil` context and
+    counts `fetch` calls: one per multi-locale edit, 3-catalog rename/delete, 3-file import,
+    Machine `PUT` and each MCP mutation; zero for conflicts, collisions, invalid input,
+    unauthorized callers, preview and reads. It also covers the secret-leak regression across
+    API, Delivery, Machine and MCP. `e2e/deploy-hooks.spec.ts` covers management in the browser
+    and never contacts Cloudflare.
 - Project access tokens: `admin`-only create/list/revoke/delete
   (`/api/projects/:slug/tokens`), backed by Forge's `ApiKeyAuthAdapter` (prefix `glossa`,
   `glossa_<id>_<secret>`), bound to exactly one project via trusted `metadata.projectId`.
@@ -240,7 +294,8 @@ PROJECT_SOURCE_CATALOG_REQUIRED`. The two catalogs are **not** required to match
   so it is indistinguishable from an editor or machine write: it appears in the Translations
   workspace, the raw catalogs UI, the machine API, MCP, and (if `publicDelivery` is on) public
   delivery immediately, with no publish/sync step. See the "Migrating an existing project" section in `README.md`.
-- ForgeCMS collections: `users`, `projects`, `catalogs`, `external_identities`, `sso_sessions`.
+- ForgeCMS collections: `users`, `projects`, `catalogs`, `external_identities`, `sso_sessions`,
+  `deploy_hooks`.
 - Primary interactive auth: DevAuth OAuth 2.1/OIDC SSO (Authorization Code + PKCE S256,
   server-side code exchange, identity from `userinfo`).
 - Application authorization: Glossa's own `users` collection, `admin`/`editor`/`viewer`
@@ -264,7 +319,9 @@ Translation JSON is stored in D1 through ForgeCMS. Glossa does not use R2/S3/obj
 
 Project slugs are protected by a database unique constraint. Catalog identity is protected by a compound unique index on `project`, `locale`, and `namespace`. Catalogs carry a `revision` and `updatedAt`, regenerated on every write.
 
-Removing a project locale is rejected when that locale already has catalog content. Project deletion (admin-only) removes the project's catalogs, revokes every access token bound to that project, and only then deletes the project record — as separate writes, not a transaction; see **Project Settings & Lifecycle V1**. Changing a project's source locale rewrites no catalog.
+Removing a project locale is rejected when that locale already has catalog content. Project deletion (admin-only) removes the project's catalogs, revokes every access token bound to that project, removes its deploy-hook configuration (without calling it), and only then deletes the project record — as separate writes, not a transaction; see **Project Settings & Lifecycle V1**. Changing a project's source locale rewrites no catalog.
+
+Each project has at most one `deploy_hooks` row (a unique index on `project`, `onDelete: 'restrict'`). Its secret URL is stored in plain text in D1 and never returned; see `docs/DEPLOY_HOOKS.md`.
 
 Project access tokens persist in Forge's own internal `_forge_api_keys` collection (never exposed as a Glossa/Forge CRUD collection); Glossa reaches it only through `ApiKeyAuthAdapter`'s own create/list/get/revoke/delete methods.
 
@@ -289,7 +346,7 @@ Every Vitest spec — including the translation workspace, the translation key l
 `vitest-pool-workers` test runtime in this repository. Public delivery and MCP were
 previously verified manually against a real local D1 database (`wrangler pages dev`),
 including the full agent journey. Catalog import was **not** re-verified against a real D1
-database, and neither were the Translation Workspace, source-locale changes, or project deletion (the ordered catalog-by-catalog delete has only run against the in-memory adapter): `wrangler.jsonc` binds the one real D1 database this repository
+database, and neither were the Translation Workspace, source-locale changes, project deletion, or deploy hooks (no real Cloudflare hook has been called from Glossa: Vitest stubs `fetch` and Playwright intercepts the test call) (the ordered catalog-by-catalog delete has only run against the in-memory adapter): `wrangler.jsonc` binds the one real D1 database this repository
 has (`glossa`, a production id, not a disposable/local-only one), and `wrangler pages dev`
 against it would write test projects/catalogs into shared production data; `.dev.vars` also
 has no `BOOTSTRAP_ADMIN_KEY`/`AUTH_SECRET`, and the only interactive sign-in path
@@ -303,22 +360,28 @@ API, and MCP. Building a real-D1 Vitest harness remains future infrastructure wo
 
 ## Next Milestone Candidates
 
-**External dogfood: `my-blog` — Astro/SSG Glossa consumer** — recommended next, ahead of AI
-translation or any other major Glossa feature. See "Still Open" below.
+No next milestone is scheduled yet. Static Consumer Deploy Hooks V1 closed the gap the `my-blog`
+dogfood exposed. The next step is to configure a real Cloudflare hook for `my-blog` in production
+and watch whether best-effort delivery is enough (see "Still Open"). Retries, if they turn out to
+be needed, would be deploy hooks V2.
 
 ## Still Open
 
 Volt UI's first real consumer integration is **done**: `volt-ui` PR #135
 (`feature/glossa-first-consumer`) merged, moving its runtime i18n onto Glossa through Etyma's
 remote mode. That validated Glossa's Public Delivery, catalog import, MCP and Analysis against a
-real external project, and is no longer pending.
+real external project.
 
-The next external dogfood target is **`my-blog` — an Astro/SSG Glossa consumer**. A static site is
-expected to consume Glossa differently from Volt UI's runtime loading (most likely reading the
-public manifest and locale JSON at build time), and to use the project's real source locale, `es`,
-consistently in its own i18n configuration. Its Glossa project was first created with the wrong
-source locale (`en`); Project Settings now lets that be corrected in place without recreating
-the project. Deployment triggering for static consumers (rebuilding the site when translations
-change) is a separate future concern and not part of Glossa today.
+**`my-blog` as an Astro/SSG Glossa consumer is done** (verified against `Andersseen/my-blog`
+`main` on 2026-09-26). PR #14 moved production translations to Glossa. PR #15, merged 2026-09-24,
+restored Spanish (`es`) as the canonical source locale, reads the Etyma locales and Glossa URL
+from one project constant (`src/i18n/project.ts`), and validates every Glossa catalog at build
+time. The site reads `https://glossa.andersseen.dev/i18n/my-blog/{locale}.json` during
+`astro build`, and the production manifest reports `sourceLocale: "es"`.
+
+Rebuilding the static site when translations change is now Glossa's job (Static Consumer Deploy
+Hooks V1), but it is **not configured for `my-blog` yet**. That needs a Cloudflare deploy hook
+created in my-blog's Cloudflare project and saved under Glossa → my-blog → Delivery. my-blog
+itself needs no code change for this.
 
 Later: catalog export. Later still: CLI / repository pull-push synchronization.

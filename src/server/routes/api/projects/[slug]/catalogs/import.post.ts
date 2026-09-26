@@ -4,6 +4,7 @@ import { requireWriteUser } from '../../../../../http/auth-http';
 import { sendCatalogImportError } from '../../../../../http/catalog-import-http';
 import { getProjectSlug } from '../../../../../http/catalog-http';
 import { getRuntimeForEvent } from '../../../../../http/project-http';
+import { scheduleDeployHookAfterWrites } from '../../../../../http/deploy-hook-http';
 import { commitCatalogImport } from '../../../../../services/catalog-import.service';
 
 /**
@@ -17,7 +18,11 @@ export default eventHandler(async (event) => {
     await requireWriteUser(event);
     const cms = await getRuntimeForEvent(event);
     const body = await readBody(event);
-    const result = await commitCatalogImport(cms, getProjectSlug(event), body);
+    const slug = getProjectSlug(event);
+    const result = await commitCatalogImport(cms, slug, body);
+
+    // The whole batch is one logical import → one rebuild (preview never reaches here).
+    scheduleDeployHookAfterWrites(event, cms, slug, result.results);
 
     if (!result.imported) {
       setResponseStatus(event, 422);

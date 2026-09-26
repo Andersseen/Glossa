@@ -2,6 +2,7 @@ import type { GlossaCmsRuntime } from '../cms/runtime';
 import { ProjectValidationError } from '../domain/project';
 import { compareSourceKeySets } from '../domain/translation-tree';
 import { listCatalogs } from './catalog.service';
+import { getProjectDeployHookView } from './deploy-hook.service';
 import { listProjectTokens } from './project-token.service';
 import { getProjectBySlug } from './project.service';
 import { loadCatalogs } from './translation-workspace.service';
@@ -81,6 +82,8 @@ export type ProjectDeletionImpact = {
   /** Counts only — never a token secret, and never more than the admin-only token list already shows. */
   accessTokens: { total: number; active: number };
   publicDelivery: boolean;
+  /** Whether a static-site deploy hook is configured — it is removed with the project, never called. */
+  deployHookConfigured: boolean;
 };
 
 /** What deleting the project would remove, for the confirmation step — factual counts only. */
@@ -102,5 +105,7 @@ export async function getProjectDeletionImpact(
       active: tokens.filter((token) => token.status === 'active').length,
     },
     publicDelivery: project.publicDelivery,
+    deployHookConfigured: (await getProjectDeployHookView(cms, project))
+      .configured,
   };
 }

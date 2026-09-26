@@ -3,6 +3,7 @@ import { UniqueConstraintError } from '@forge-cms/runtime';
 import type { GlossaCmsRuntime } from '../cms/runtime';
 import { DEFAULT_CATALOG_NAMESPACE } from '../domain/catalog';
 import {
+  hasI18nStructureChange,
   mergeProjectInput,
   ProjectValidationError,
   toProject,
@@ -10,6 +11,7 @@ import {
   type Project,
   type ProjectInput,
 } from '../domain/project';
+import { deleteDeployHookForProject } from './deploy-hook.service';
 import { revokeAllProjectTokens } from './project-token.service';
 
 const PROJECTS_COLLECTION = 'projects';
@@ -81,6 +83,8 @@ export type ProjectDeletionResult = {
   project: Project;
   deletedCatalogs: number;
   revokedTokens: number;
+  /** Whether a static-consumer deploy hook was configured (and so removed — never called). */
+  removedDeployHook: boolean;
 };
 
 export async function listProjects(cms: GlossaCmsRuntime): Promise<Project[]> {
@@ -147,11 +151,28 @@ export async function createProject(
   return toProject(record);
 }
 
+export type ProjectUpdateResult = {
+  project: Project;
+  /**
+   * The source locale or the configured locale list changed — the canonical i18n structure a
+   * static consumer bakes into its build. A name-only or `publicDelivery`-only edit is `false`.
+   */
+  i18nStructureChanged: boolean;
+};
+
 export async function updateProject(
   cms: GlossaCmsRuntime,
   slug: string,
   input: ProjectInput,
 ): Promise<Project> {
+  return (await updateProjectSettings(cms, slug, input)).project;
+}
+
+export async function updateProjectSettings(
+  cms: GlossaCmsRuntime,
+  slug: string,
+  input: ProjectInput,
+): Promise<ProjectUpdateResult> {
   const current = await getProjectBySlug(cms, slug);
   const next = mergeProjectInput(current, input);
   await assertSlugAvailable(cms, next.slug, current.id);
@@ -167,14 +188,19 @@ export async function updateProject(
       data: next,
     }),
   );
+  const project = toProject(record);
 
-  return toProject(record);
+  return {
+    project,
+    i18nStructureChanged: hasI18nStructureChange(current, project),
+  };
 }
 
 /**
  * Deletes a project and everything it owns: its access tokens (revoked), its catalogs (deleted),
- * then the project record — in that order, and the record is never deleted while an owned catalog
- * remains. There is no transaction across these writes; a failure part-way throws
+ * its deploy-hook configuration (deleted, never invoked — deleting is not a content change and the
+ * secret must not outlive the project), then the project record — in that order, and the record is
+ * never deleted while an owned catalog or hook remains. There is no transaction across these writes; a failure part-way throws
  * `ProjectDeleteIncompleteError` (project kept, some catalogs possibly already gone) rather than
  * pretending to roll back. Tokens are revoked first so a machine writer cannot re-create a catalog
  * mid-deletion. Users, identities, sessions and every other project are untouched.
@@ -186,6 +212,7 @@ export async function deleteProject(
   const current = await getProjectBySlug(cms, slug);
   let deletedCatalogs = 0;
   let revokedTokens = 0;
+  let removedDeployHook = false;
 
   try {
     revokedTokens = await revokeAllProjectTokens(cms, current.id);
@@ -201,12 +228,19 @@ export async function deleteProject(
     }
 
     await assertNoCatalogsRemain(cms, current.id);
+    // The hook's `project` relation is `restrict`, so the record delete below would refuse anyway.
+    removedDeployHook = (await deleteDeployHookForProject(cms, current.id)) > 0;
     await cms.delete({ collection: PROJECTS_COLLECTION, id: current.id });
   } catch (error) {
     throw new ProjectDeleteIncompleteError(current, deletedCatalogs, error);
   }
 
-  return { project: current, deletedCatalogs, revokedTokens };
+  return {
+    project: current,
+    deletedCatalogs,
+    revokedTokens,
+    removedDeployHook,
+  };
 }
 
 export function isProjectServiceError(

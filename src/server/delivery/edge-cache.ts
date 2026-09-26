@@ -1,5 +1,7 @@
 import type { H3Event } from 'h3';
 
+import { runInBackground } from '../http/background';
+
 /**
  * Wraps Cloudflare's `caches.default` Cache API for the two public `/i18n/*` routes only. A no-op
  * everywhere else (plain `pnpm dev`, Vitest) — `globalThis.caches` simply doesn't exist there, so
@@ -42,19 +44,8 @@ export function purgeEdgeCache(event: H3Event, urls: string[]): void {
     return;
   }
 
-  const purge = Promise.all(urls.map((url) => cache.delete(url))).catch(() => {
-    // Best-effort — a failed purge just means the existing TTL bound still applies.
-  });
-
-  const waitUntil = (
-    event.context as { waitUntil?: (p: Promise<unknown>) => void }
-  ).waitUntil;
-
-  if (typeof waitUntil === 'function') {
-    waitUntil(purge);
-  } else {
-    void purge;
-  }
+  // Best-effort — a failed purge just means the existing TTL bound still applies.
+  runInBackground(event, Promise.all(urls.map((url) => cache.delete(url))));
 }
 
 export function writeEdgeCache(
@@ -68,17 +59,6 @@ export function writeEdgeCache(
     return;
   }
 
-  const put = cache.put(request, response.clone()).catch(() => {
-    // Best-effort — a failed cache write must never affect the response already sent.
-  });
-
-  const waitUntil = (
-    event.context as { waitUntil?: (p: Promise<unknown>) => void }
-  ).waitUntil;
-
-  if (typeof waitUntil === 'function') {
-    waitUntil(put);
-  } else {
-    void put;
-  }
+  // Best-effort — a failed cache write must never affect the response already sent.
+  runInBackground(event, cache.put(request, response.clone()));
 }

@@ -11,6 +11,15 @@ import { registerListCatalogsTool } from './tools/list-catalogs';
 import { registerRenameTranslationTool } from './tools/rename-translation';
 import { registerSetTranslationTool } from './tools/set-translation';
 
+export type McpServerHooks = {
+  /**
+   * Called once after a mutating tool (set/rename/delete) successfully writes content — the single
+   * place an MCP change reaches side effects such as the static-consumer deploy hook, so no tool
+   * knows about deploy hooks itself. Read tools never call it.
+   */
+  onProjectChanged: () => void;
+};
+
 /**
  * Builds one fresh, project-scoped MCP server per HTTP request (stateless — see `mcp.post.ts`).
  * The project comes only from the already-authenticated `ProjectMachineContext` (token metadata),
@@ -20,6 +29,7 @@ import { registerSetTranslationTool } from './tools/set-translation';
 export function createProjectMcpServer(
   machine: ProjectMachineContext,
   origin: string,
+  hooks: McpServerHooks,
 ): McpServer {
   const server = new McpServer({ name: 'glossa', version: '1.0.0' });
 
@@ -27,9 +37,9 @@ export function createProjectMcpServer(
   registerListCatalogsTool(server, machine);
   registerGetCatalogTool(server, machine);
   registerGetTranslationTool(server, machine);
-  registerSetTranslationTool(server, machine);
-  registerRenameTranslationTool(server, machine);
-  registerDeleteTranslationTool(server, machine);
+  registerSetTranslationTool(server, machine, hooks);
+  registerRenameTranslationTool(server, machine, hooks);
+  registerDeleteTranslationTool(server, machine, hooks);
   registerAnalyzeTranslationsTool(server, machine);
   registerGetDeliveryUrlsTool(server, machine, origin);
 

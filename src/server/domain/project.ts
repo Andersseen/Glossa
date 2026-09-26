@@ -90,6 +90,21 @@ export function mergeProjectInput(
   });
 }
 
+/**
+ * Whether an update moved the source locale or changed the configured locale list (order included
+ * — it is the order the manifest publishes). Name and `publicDelivery` are deliberately excluded.
+ */
+export function hasI18nStructureChange(
+  previous: Pick<Project, 'sourceLocale' | 'locales'>,
+  next: Pick<Project, 'sourceLocale' | 'locales'>,
+): boolean {
+  return (
+    previous.sourceLocale !== next.sourceLocale ||
+    previous.locales.length !== next.locales.length ||
+    previous.locales.some((locale, index) => locale !== next.locales[index])
+  );
+}
+
 export function toProject(record: ProjectRecord): Project {
   return {
     id: requireString(record.id, 'Project id is required.'),

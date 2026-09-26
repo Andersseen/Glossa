@@ -3,6 +3,7 @@ import { eventHandler, readBody } from 'h3';
 import { requireWriteUser } from '../../../../../http/auth-http';
 import { getProjectSlug } from '../../../../../http/catalog-http';
 import { getRuntimeForEvent } from '../../../../../http/project-http';
+import { scheduleDeployHookAfterWrites } from '../../../../../http/deploy-hook-http';
 import {
   sendTranslationLifecycleError,
   setTranslationLifecycleStatus,
@@ -19,11 +20,13 @@ export default eventHandler(async (event) => {
     await requireWriteUser(event);
     const cms = await getRuntimeForEvent(event);
     const body = await readBody(event);
+    const slug = getProjectSlug(event);
+    const response = await renameProjectTranslationKey(cms, slug, body ?? {});
 
-    return setTranslationLifecycleStatus(
-      event,
-      await renameProjectTranslationKey(cms, getProjectSlug(event), body ?? {}),
-    );
+    // Project-wide across every catalog, but one logical operation → one rebuild.
+    scheduleDeployHookAfterWrites(event, cms, slug, response.results);
+
+    return setTranslationLifecycleStatus(event, response);
   } catch (error) {
     return sendTranslationLifecycleError(event, error);
   }

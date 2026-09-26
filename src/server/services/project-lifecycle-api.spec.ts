@@ -478,6 +478,7 @@ describe('DELETE /api/projects/:slug', () => {
       project: { id: project.id, slug, name: 'My Blog' },
       deletedCatalogs: 2,
       revokedTokens: 1,
+      removedDeployHook: false,
     });
     expect(text).not.toContain('Contents stay private');
     await expect(getProjectBySlug(cms, slug)).rejects.toBeInstanceOf(

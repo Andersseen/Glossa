@@ -226,6 +226,7 @@ describe('getProjectDeletionImpact', () => {
       catalogs: 2,
       accessTokens: { total: 2, active: 1 },
       publicDelivery: true,
+      deployHookConfigured: false,
     });
   });
 

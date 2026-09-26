@@ -11,6 +11,7 @@ import { InMemoryStorageAdapter } from '@forge-cms/storage';
 
 import { GlossaSsoAuthAdapter } from '../auth/glossa-sso-auth-adapter';
 import { catalogsCollection } from './collections/catalogs';
+import { deployHooksCollection } from './collections/deploy-hooks';
 import { externalIdentitiesCollection } from './collections/external-identities';
 import { projectsCollection } from './collections/projects';
 import { ssoSessionsCollection } from './collections/sso-sessions';
@@ -51,12 +52,14 @@ export const collections = [
   catalogsCollection,
   externalIdentitiesCollection,
   ssoSessionsCollection,
+  deployHooksCollection,
 ] satisfies [
   typeof typedUsersCollection,
   typeof projectsCollection,
   typeof catalogsCollection,
   typeof externalIdentitiesCollection,
   typeof ssoSessionsCollection,
+  typeof deployHooksCollection,
 ];
 
 export type GlossaCmsRuntime = ForgeCmsRuntime<AuthEnv, typeof collections>;
