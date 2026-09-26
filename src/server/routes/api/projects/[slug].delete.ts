@@ -21,10 +21,8 @@ export default eventHandler(async (event) => {
   try {
     await requireAdminUser(event);
     const cms = await getRuntimeForEvent(event);
-    const { project, deletedCatalogs, revokedTokens } = await deleteProject(
-      cms,
-      getProjectSlug(event),
-    );
+    const { project, deletedCatalogs, revokedTokens, removedDeployHook } =
+      await deleteProject(cms, getProjectSlug(event));
 
     // The project's public URLs must stop serving now, not when the edge TTL lapses.
     purgeProjectDeliveryCache(event, project);
@@ -34,6 +32,7 @@ export default eventHandler(async (event) => {
       project: { id: project.id, slug: project.slug, name: project.name },
       deletedCatalogs,
       revokedTokens,
+      removedDeployHook,
     };
   } catch (error) {
     if (error instanceof ProjectDeleteIncompleteError) {

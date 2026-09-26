@@ -11,6 +11,7 @@ import {
   CatalogRevisionConflictError,
   saveCatalogWithPrecondition,
 } from '../../../../../services/catalog.service';
+import { scheduleProjectDeployHook } from '../../../../../http/deploy-hook-http';
 
 /**
  * Optimistic concurrency uses standard HTTP preconditions, not a body field: send `If-Match:
@@ -38,6 +39,7 @@ export default eventHandler(async (event) => {
     );
 
     setHeader(event, 'ETag', `"${catalog.revision}"`);
+    scheduleProjectDeployHook(event, context.cms, context.project);
 
     return {
       data: {

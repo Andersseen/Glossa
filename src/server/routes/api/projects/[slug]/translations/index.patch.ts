@@ -3,6 +3,7 @@ import { eventHandler, readBody } from 'h3';
 import { requireWriteUser } from '../../../../../http/auth-http';
 import { getProjectSlug } from '../../../../../http/catalog-http';
 import { getRuntimeForEvent } from '../../../../../http/project-http';
+import { scheduleDeployHookAfterWrites } from '../../../../../http/deploy-hook-http';
 import {
   sendTranslationError,
   setTranslationWriteStatus,
@@ -15,11 +16,13 @@ export default eventHandler(async (event) => {
     await requireWriteUser(event);
     const cms = await getRuntimeForEvent(event);
     const body = await readBody(event);
+    const slug = getProjectSlug(event);
+    const response = await updateTranslationKey(cms, slug, body ?? {});
 
-    return setTranslationWriteStatus(
-      event,
-      await updateTranslationKey(cms, getProjectSlug(event), body ?? {}),
-    );
+    // One logical edit → at most one static rebuild, however many locales it touched.
+    scheduleDeployHookAfterWrites(event, cms, slug, response.results);
+
+    return setTranslationWriteStatus(event, response);
   } catch (error) {
     return sendTranslationError(event, error);
   }

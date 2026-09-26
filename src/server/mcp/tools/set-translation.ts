@@ -13,6 +13,7 @@ import {
   saveCatalogWithPrecondition,
 } from '../../services/catalog.service';
 import { McpScopeError, toToolError } from '../errors';
+import type { McpServerHooks } from '../server';
 
 const inputSchema = z.object({
   locale: z.string().describe('One of the project’s configured locales.'),
@@ -37,6 +38,7 @@ const inputSchema = z.object({
 export function registerSetTranslationTool(
   server: McpServer,
   machine: ProjectMachineContext,
+  hooks: McpServerHooks,
 ): void {
   server.registerTool(
     'set_translation',
@@ -63,6 +65,7 @@ export function registerSetTranslationTool(
           nextContent,
           { ifMatch: expectedRevision },
         );
+        hooks.onProjectChanged();
 
         return {
           content: [

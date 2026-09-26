@@ -54,6 +54,14 @@ reading, writing, renaming and deleting keys, reading delivery URLs, and analyzi
 completeness (`analyze_translations`) — without a consumer repository implementing any protocol
 glue itself. See `docs/MCP.md` for the full tool list.
 
+A **static** consumer, such as an Astro SSG site, reads those URLs at build time, so a Glossa edit
+only reaches it after a rebuild. A project admin can save a **Cloudflare deploy hook** under
+**Delivery → Static site rebuild**. Glossa then POSTs to it in the background once per successful
+translation change: a workspace edit, key rename/delete, import, raw catalog save/delete, Machine
+`PUT`, MCP write, or a source-locale/locales change. A multi-locale operation triggers exactly one
+build. The hook URL is a secret: it is shown masked after saving and never returned. A failing
+hook never fails the translation change. See `docs/DEPLOY_HOOKS.md`.
+
 ## Editing translations
 
 A project's **Translations** tab is the normal way to work on translations, and it is
@@ -161,7 +169,8 @@ Delivery). `admin` and `editor` can edit; `viewer` sees the same values read-onl
 - Saving purges the project's cached public delivery manifest and locale URLs.
 
 Under **Danger zone**, an **admin** can **delete the project**. The confirmation shows what
-will be removed (catalogs, configured locales, active access tokens, public delivery status) and
+will be removed (catalogs, configured locales, active access tokens, public delivery status, and
+the deploy hook if one is configured; it is removed and never called) and
 requires typing the project's slug before **Delete permanently** enables. Deletion removes the
 project **and all of its catalogs**, revokes every access token bound to it, and stops public
 delivery at once (the manifest and locale URLs are explicitly purged from the edge cache, not

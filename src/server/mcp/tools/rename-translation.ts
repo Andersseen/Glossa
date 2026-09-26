@@ -1,9 +1,11 @@
 import type { McpServer } from '@modelcontextprotocol/server';
 import * as z from 'zod/v4';
 
+import { hasCommittedWrite } from '../../domain/deploy-hook';
 import type { ProjectMachineContext } from '../../http/machine-http';
 import { renameProjectTranslationKey } from '../../services/translation-lifecycle.service';
 import { McpScopeError, toToolError } from '../errors';
+import type { McpServerHooks } from '../server';
 
 const inputSchema = z.object({
   key: z
@@ -26,6 +28,7 @@ const inputSchema = z.object({
 export function registerRenameTranslationTool(
   server: McpServer,
   machine: ProjectMachineContext,
+  hooks: McpServerHooks,
 ): void {
   server.registerTool(
     'rename_translation',
@@ -46,6 +49,10 @@ export function registerRenameTranslationTool(
           machine.project.slug,
           { key, newKey, expectedRevisions },
         );
+
+        if (hasCommittedWrite(result.results)) {
+          hooks.onProjectChanged();
+        }
 
         return {
           content: [{ type: 'text', text: JSON.stringify(result) }],

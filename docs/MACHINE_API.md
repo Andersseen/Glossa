@@ -166,6 +166,11 @@ Every machine write runs through the same `CatalogService` a human save does: th
 structure validation, the same configured-locale check, the same project/locale/namespace
 identity rules. There is no separate, looser write path for machines.
 
+A successful `PUT` also schedules the project's static-site deploy hook once, if one is configured
+and enabled (see `docs/DEPLOY_HOOKS.md`). A refused `PUT` (`412`, validation error, bad token or
+missing scope) schedules nothing. The hook runs in the background and never changes this
+response.
+
 ## Error shape
 
 Every response is one consistent envelope:

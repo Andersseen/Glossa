@@ -134,6 +134,15 @@ import type { Project, ProjectDeletionImpact } from './project.types';
               <dd class="font-medium">
                 {{ impact.publicDelivery ? 'Enabled' : 'Disabled' }}
               </dd>
+              @if (impact.deployHookConfigured) {
+                <dt class="text-muted-foreground">Deploy hook</dt>
+                <dd class="font-medium">
+                  Removed
+                  <span class="text-muted-foreground font-normal">
+                    (not triggered)
+                  </span>
+                </dd>
+              }
             </dl>
           } @else if (loadingImpact()) {
             <p class="text-muted-foreground text-sm" role="status">

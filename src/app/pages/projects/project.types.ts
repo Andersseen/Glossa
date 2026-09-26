@@ -30,4 +30,5 @@ export type ProjectDeletionImpact = {
   catalogs: number;
   accessTokens: { total: number; active: number };
   publicDelivery: boolean;
+  deployHookConfigured: boolean;
 };

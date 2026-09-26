@@ -1,9 +1,11 @@
 import type { McpServer } from '@modelcontextprotocol/server';
 import * as z from 'zod/v4';
 
+import { hasCommittedWrite } from '../../domain/deploy-hook';
 import type { ProjectMachineContext } from '../../http/machine-http';
 import { deleteProjectTranslationKey } from '../../services/translation-lifecycle.service';
 import { McpScopeError, toToolError } from '../errors';
+import type { McpServerHooks } from '../server';
 
 const inputSchema = z.object({
   key: z
@@ -21,6 +23,7 @@ const inputSchema = z.object({
 export function registerDeleteTranslationTool(
   server: McpServer,
   machine: ProjectMachineContext,
+  hooks: McpServerHooks,
 ): void {
   server.registerTool(
     'delete_translation',
@@ -41,6 +44,10 @@ export function registerDeleteTranslationTool(
           machine.project.slug,
           { key, expectedRevisions },
         );
+
+        if (hasCommittedWrite(result.results)) {
+          hooks.onProjectChanged();
+        }
 
         return {
           content: [{ type: 'text', text: JSON.stringify(result) }],

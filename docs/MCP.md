@@ -266,6 +266,16 @@ Generic reference config — verify the exact syntax for whichever MCP client yo
 secret in the agent's or CI's own secret storage — never committed, and never shown by Glossa
 again after the token is first created.
 
+## Static-site rebuilds
+
+When `set_translation`, `rename_translation` or `delete_translation` succeeds, it schedules the
+project's static-site deploy hook **once** in the background, if one is configured and enabled.
+A rename across every locale is still one build. Read tools, `analyze_translations`, and any
+refused call (revision conflict, key collision, missing scope) schedule nothing. The tools do not
+know about deploy hooks: the per-request server receives one `onProjectChanged` callback. MCP
+cannot view or configure the hook, and the hook URL never appears in any tool result. See
+`docs/DEPLOY_HOOKS.md`.
+
 ## What MCP does not do (yet)
 
 - No translation-memory or AI translation — `set_translation` writes exactly the value it is

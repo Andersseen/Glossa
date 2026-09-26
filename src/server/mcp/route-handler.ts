@@ -5,6 +5,7 @@ import {
   requireProjectMachineContext,
   sendMachineError,
 } from '../http/machine-http';
+import { scheduleProjectDeployHook } from '../http/deploy-hook-http';
 import { createProjectMcpServer } from './server';
 
 /**
@@ -24,7 +25,10 @@ export default eventHandler(async (event) => {
   try {
     const machine = await requireProjectMachineContext(event);
     const origin = getRequestURL(event).origin;
-    const server = createProjectMcpServer(machine, origin);
+    const server = createProjectMcpServer(machine, origin, {
+      onProjectChanged: () =>
+        scheduleProjectDeployHook(event, machine.cms, machine.project),
+    });
     const transport = new WebStandardStreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
       enableJsonResponse: true,
