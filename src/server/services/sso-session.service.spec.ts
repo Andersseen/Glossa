@@ -36,12 +36,21 @@ async function createTestRuntime(): Promise<{
   return { cms, ssoAdapter, database };
 }
 
+async function createUserRow(
+  cms: GlossaCmsRuntime,
+  data: Record<string, unknown>,
+): Promise<{ id: string }> {
+  const record = await cms.adapters.database.create('users', data);
+  return { id: String(record['id']) };
+}
+
 describe('sso session lifecycle', () => {
   it('returns the raw token once and persists only its hash', async () => {
     const { cms, database } = await createTestRuntime();
-    const user = await cms.create({
-      collection: 'users',
-      data: { email: 'admin@example.com', role: 'admin', passwordHash: 'x' },
+    const user = await createUserRow(cms, {
+      email: 'admin@example.com',
+      role: 'admin',
+      passwordHash: 'x',
     });
 
     const { token } = await createSsoSession(cms, user.id, 'dev-auth');
@@ -56,9 +65,10 @@ describe('sso session lifecycle', () => {
 
   it('validates a freshly created session and loads the current user', async () => {
     const { cms, ssoAdapter } = await createTestRuntime();
-    const user = await cms.create({
-      collection: 'users',
-      data: { email: 'admin@example.com', role: 'admin', passwordHash: 'x' },
+    const user = await createUserRow(cms, {
+      email: 'admin@example.com',
+      role: 'admin',
+      passwordHash: 'x',
     });
     const { token } = await createSsoSession(cms, user.id, 'dev-auth');
 
@@ -72,9 +82,10 @@ describe('sso session lifecycle', () => {
 
   it('rejects an expired session', async () => {
     const { cms, ssoAdapter, database } = await createTestRuntime();
-    const user = await cms.create({
-      collection: 'users',
-      data: { email: 'admin@example.com', role: 'admin', passwordHash: 'x' },
+    const user = await createUserRow(cms, {
+      email: 'admin@example.com',
+      role: 'admin',
+      passwordHash: 'x',
     });
     const { token } = await createSsoSession(cms, user.id, 'dev-auth');
     const rows = await database.findMany({ collection: 'sso_sessions' });
@@ -92,9 +103,10 @@ describe('sso session lifecycle', () => {
 
   it('rejects a revoked session after logout, even with the correct raw token', async () => {
     const { cms, ssoAdapter } = await createTestRuntime();
-    const user = await cms.create({
-      collection: 'users',
-      data: { email: 'admin@example.com', role: 'admin', passwordHash: 'x' },
+    const user = await createUserRow(cms, {
+      email: 'admin@example.com',
+      role: 'admin',
+      passwordHash: 'x',
     });
     const { token } = await createSsoSession(cms, user.id, 'dev-auth');
 
@@ -107,13 +119,14 @@ describe('sso session lifecycle', () => {
 
   it('rejects a session whose linked user has been deleted, without recreating it', async () => {
     const { cms, ssoAdapter } = await createTestRuntime();
-    const user = await cms.create({
-      collection: 'users',
-      data: { email: 'admin@example.com', role: 'editor', passwordHash: 'x' },
+    const user = await createUserRow(cms, {
+      email: 'admin@example.com',
+      role: 'editor',
+      passwordHash: 'x',
     });
     const { token } = await createSsoSession(cms, user.id, 'dev-auth');
 
-    await cms.delete({ collection: 'users', id: user.id });
+    await cms.adapters.database.delete('users', user.id);
 
     await expect(
       ssoAdapter.requireAuth(requestWithBearer(token)),
@@ -125,17 +138,14 @@ describe('sso session lifecycle', () => {
 
   it('reflects a role change on the very next request, without re-login', async () => {
     const { cms, ssoAdapter } = await createTestRuntime();
-    const user = await cms.create({
-      collection: 'users',
-      data: { email: 'admin@example.com', role: 'admin', passwordHash: 'x' },
+    const user = await createUserRow(cms, {
+      email: 'admin@example.com',
+      role: 'admin',
+      passwordHash: 'x',
     });
     const { token } = await createSsoSession(cms, user.id, 'dev-auth');
 
-    await cms.update({
-      collection: 'users',
-      id: user.id,
-      data: { role: 'viewer' },
-    });
+    await cms.adapters.database.update('users', user.id, { role: 'viewer' });
 
     const authedUser = await ssoAdapter.requireAuth(requestWithBearer(token));
 

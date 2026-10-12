@@ -1,7 +1,7 @@
 import { NotFoundError, UniqueConstraintError } from '@forge-cms/runtime';
 
 import type { ExternalIdentity } from '../auth/identity';
-import type { GlossaCmsRuntime } from '../cms/runtime';
+import { getPasswordAuthAdapter, type GlossaCmsRuntime } from '../cms/runtime';
 
 const EXTERNAL_IDENTITIES_COLLECTION = 'external_identities';
 const USERS_COLLECTION = 'users';
@@ -92,15 +92,20 @@ export async function findGlossaUserByEmail(
   return record ? (record as unknown as GlossaUserRecord) : null;
 }
 
+function randomUnusablePassword(): string {
+  return Array.from(crypto.getRandomValues(new Uint8Array(32)), (byte) =>
+    byte.toString(16).padStart(2, '0'),
+  ).join('');
+}
+
 /**
  * Provisions a Glossa user for a DevAuth identity that has never signed in here before, and links it.
  * The first user in an empty install becomes `admin` (the same rule
  * `UsersCollectionAuthAdapter.createUser`/`signup` already applies to the password path); anyone
  * after that starts as `viewer` and an admin can promote them.
  *
- * `passwordHash` is deliberately left unset: `UsersCollectionAuthAdapter.login` treats a missing hash
- * as "invalid credentials", so an SSO-provisioned account cannot be signed into with a password
- * unless one is deliberately set later.
+ * The password is a random value that is discarded, so an SSO-provisioned account cannot be signed
+ * into with a password unless one is deliberately set later.
  */
 async function provisionUserFromIdentity(
   cms: GlossaCmsRuntime,
@@ -110,13 +115,25 @@ async function provisionUserFromIdentity(
 ): Promise<GlossaUserRecord> {
   const isFirstUser = (await cms.count({ collection: USERS_COLLECTION })) === 0;
 
-  const created = await cms.create({
+  // The users collection is auth-managed, so generic CRUD cannot create rows in it. The adapter
+  // requires a password, so give the account a random one that is never stored or shown anywhere:
+  // password sign-in stays impossible until an admin deliberately sets a real one.
+  const result = await getPasswordAuthAdapter(cms).createUser({
+    email: normalizeEmail(email),
+    ...(identity.name ? { name: identity.name } : {}),
+    password: randomUnusablePassword(),
+    role: isFirstUser ? 'admin' : 'viewer',
+  });
+
+  if (!result.ok) {
+    throw new Error(
+      `Could not provision a user for the identity: ${result.reason}.`,
+    );
+  }
+
+  const created = await cms.findByID({
     collection: USERS_COLLECTION,
-    data: {
-      email: normalizeEmail(email),
-      ...(identity.name ? { name: identity.name } : {}),
-      role: isFirstUser ? 'admin' : 'viewer',
-    },
+    id: result.user.id,
   });
 
   await linkNewIdentity(cms, provider, identity.subject, created.id, email);
@@ -162,8 +179,13 @@ export async function resolveOrLinkUser(
       });
       return user as unknown as GlossaUserRecord;
     } catch (error) {
-      if (error instanceof NotFoundError) return null;
-      throw error;
+      if (!(error instanceof NotFoundError)) throw error;
+      // The linked user was deleted. Auth-managed users never run relation cascades, so the mapping
+      // is left behind; drop it and fall through to link or provision the person afresh.
+      await cms.delete({
+        collection: EXTERNAL_IDENTITIES_COLLECTION,
+        id: existingMapping.id,
+      });
     }
   }
 
