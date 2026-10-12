@@ -1,0 +1,16 @@
+{
+  "app": {
+    "name": "Glossa",
+    "homeLabel": "Proyectos de Glossa"
+  },
+  "nav": {
+    "primaryLabel": "Navegación del producto",
+    "projects": "Proyectos",
+    "translations": "Traducciones",
+    "upcoming": "Próximamente",
+    "openMenu": "Abrir navegación"
+  },
+  "language": {
+    "label": "Idioma"
+  }
+}

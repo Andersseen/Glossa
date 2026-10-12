@@ -1,10 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  inject,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { LmnArrowLeftStartOnRectangleIcon } from 'lumen-icons/arrow-left-start-on-rectangle';
 import { LmnBars3Icon } from 'lumen-icons/bars-3';
@@ -13,11 +7,9 @@ import { LmnLanguageIcon } from 'lumen-icons/language';
 import { LmnXMarkIcon } from 'lumen-icons/x-mark';
 
 import { AuthClient } from '../auth/auth-client';
-import {
-  I18N_CATALOGS,
-  SUPPORTED_LOCALES,
-  type Locale,
-} from '../i18n/catalogs';
+import { injectI18n } from '@etyma/angular';
+
+import { i18n, SUPPORTED_LOCALES } from '../i18n/i18n';
 import { UiButton } from '../ui/button';
 import { buttonVariants } from '../ui/button/variants';
 import {
@@ -58,12 +50,12 @@ import { UiNativeSelect } from '../ui/select';
         <a
           routerLink="/projects"
           class="focus-visible:ring-ring inline-flex rounded-md text-lg font-semibold tracking-normal outline-none focus-visible:ring-2"
-          [attr.aria-label]="t().app.homeLabel"
+          [attr.aria-label]="t('app.homeLabel')"
         >
-          {{ t().app.name }}
+          {{ t('app.name') }}
         </a>
 
-        <nav class="mt-8" [attr.aria-label]="t().nav.primaryLabel">
+        <nav class="mt-8" [attr.aria-label]="t('nav.primaryLabel')">
           <ul class="grid gap-1">
             <li>
               <a
@@ -74,7 +66,7 @@ import { UiNativeSelect } from '../ui/select';
                 ariaCurrentWhenActive="page"
               >
                 <lmn-folder aria-hidden="true" [size]="16" />
-                {{ t().nav.projects }}
+                {{ t('nav.projects') }}
               </a>
             </li>
             <li>
@@ -84,9 +76,9 @@ import { UiNativeSelect } from '../ui/select';
               >
                 <span class="inline-flex items-center gap-2">
                   <lmn-language aria-hidden="true" [size]="16" />
-                  {{ t().nav.translations }}
+                  {{ t('nav.translations') }}
                 </span>
-                <span class="text-xs font-normal">{{ t().nav.upcoming }}</span>
+                <span class="text-xs font-normal">{{ t('nav.upcoming') }}</span>
               </span>
             </li>
           </ul>
@@ -120,7 +112,7 @@ import { UiNativeSelect } from '../ui/select';
             for="shell-locale"
           >
             <lmn-language aria-hidden="true" [size]="14" />
-            {{ t().language.label }}
+            {{ t('language.label') }}
           </label>
           <select
             id="shell-locale"
@@ -141,15 +133,15 @@ import { UiNativeSelect } from '../ui/select';
         <a
           routerLink="/projects"
           class="focus-visible:ring-ring rounded-md font-semibold outline-none focus-visible:ring-2"
-          [attr.aria-label]="t().app.homeLabel"
+          [attr.aria-label]="t('app.homeLabel')"
         >
-          {{ t().app.name }}
+          {{ t('app.name') }}
         </a>
         <button
           type="button"
           [class]="menuButtonClass"
           [uiDrawer]="mobileNavigation"
-          [attr.aria-label]="t().nav.openMenu"
+          [attr.aria-label]="t('nav.openMenu')"
         >
           <lmn-bars-3 aria-hidden="true" [size]="20" />
         </button>
@@ -167,9 +159,9 @@ import { UiNativeSelect } from '../ui/select';
       <section uiDrawerContent side="left" class="bg-card p-5">
         <div class="flex items-start justify-between gap-4">
           <div>
-            <h2 uiDrawerTitle>{{ t().app.name }}</h2>
+            <h2 uiDrawerTitle>{{ t('app.name') }}</h2>
             <p uiDrawerDescription class="mt-2">
-              {{ t().nav.primaryLabel }}
+              {{ t('nav.primaryLabel') }}
             </p>
           </div>
           <ui-drawer-close>
@@ -177,7 +169,7 @@ import { UiNativeSelect } from '../ui/select';
           </ui-drawer-close>
         </div>
 
-        <nav class="mt-8" [attr.aria-label]="t().nav.primaryLabel">
+        <nav class="mt-8" [attr.aria-label]="t('nav.primaryLabel')">
           <ul class="grid gap-1">
             <li>
               <a
@@ -188,7 +180,7 @@ import { UiNativeSelect } from '../ui/select';
                 ariaCurrentWhenActive="page"
               >
                 <lmn-folder aria-hidden="true" [size]="16" />
-                {{ t().nav.projects }}
+                {{ t('nav.projects') }}
               </a>
             </li>
             <li>
@@ -198,9 +190,9 @@ import { UiNativeSelect } from '../ui/select';
               >
                 <span class="inline-flex items-center gap-2">
                   <lmn-language aria-hidden="true" [size]="16" />
-                  {{ t().nav.translations }}
+                  {{ t('nav.translations') }}
                 </span>
-                <span class="text-xs font-normal">{{ t().nav.upcoming }}</span>
+                <span class="text-xs font-normal">{{ t('nav.upcoming') }}</span>
               </span>
             </li>
           </ul>
@@ -234,7 +226,7 @@ import { UiNativeSelect } from '../ui/select';
             for="mobile-shell-locale"
           >
             <lmn-language aria-hidden="true" [size]="14" />
-            {{ t().language.label }}
+            {{ t('language.label') }}
           </label>
           <select
             id="mobile-shell-locale"
@@ -258,13 +250,12 @@ export class AppShell {
     size: 'icon',
   });
   protected readonly locales = SUPPORTED_LOCALES;
-  protected readonly locale = signal<Locale>('en');
-  protected readonly t = computed(() => I18N_CATALOGS[this.locale()]);
+  protected readonly i18n = injectI18n(i18n);
+  protected readonly locale = this.i18n.locale;
+  protected readonly t = this.i18n.t;
 
   protected setLocale(locale: string): void {
-    if (SUPPORTED_LOCALES.includes(locale as Locale)) {
-      this.locale.set(locale as Locale);
-    }
+    void this.i18n.setLocale(locale);
   }
 
   protected async logout(): Promise<void> {

@@ -1,0 +1,16 @@
+{
+  "app": {
+    "name": "Glossa",
+    "homeLabel": "Проєкти Glossa"
+  },
+  "nav": {
+    "primaryLabel": "Навігація продукту",
+    "projects": "Проєкти",
+    "translations": "Переклади",
+    "upcoming": "Незабаром",
+    "openMenu": "Відкрити навігацію"
+  },
+  "language": {
+    "label": "Мова"
+  }
+}
