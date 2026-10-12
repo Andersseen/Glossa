@@ -11,3 +11,4 @@ test-results
 .agentyx.json
 .agentyx.lock.json
 .mcp.json
+.claude/settings.json

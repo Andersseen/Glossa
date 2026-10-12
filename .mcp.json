@@ -6,11 +6,15 @@
     },
     "playwright": {
       "args": [
-        "@playwright/mcp@latest"
+        "@playwright/mcp@0.0.81"
       ],
       "command": "npx",
       "env": {},
       "type": "stdio"
+    },
+    "volt-ui": {
+      "type": "http",
+      "url": "https://volt-ui.pages.dev/api/mcp"
     }
   }
 }

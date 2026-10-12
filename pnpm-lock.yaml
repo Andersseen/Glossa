@@ -34,24 +34,30 @@ importers:
       '@angular/router':
         specifier: ^22.0.0
         version: 22.1.3(@angular/common@22.1.3(@angular/core@22.1.3(@angular/compiler@22.1.3)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.1.3(@angular/compiler@22.1.3)(rxjs@7.8.2))(@angular/platform-browser@22.1.3(@angular/common@22.1.3(@angular/core@22.1.3(@angular/compiler@22.1.3)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.1.3(@angular/compiler@22.1.3)(rxjs@7.8.2)))(rxjs@7.8.2)
+      '@etyma/angular':
+        specifier: 1.0.0
+        version: 1.0.0(@angular/common@22.1.3(@angular/core@22.1.3(@angular/compiler@22.1.3)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.1.3(@angular/compiler@22.1.3)(rxjs@7.8.2))
+      '@etyma/core':
+        specifier: 1.0.0
+        version: 1.0.0
       '@forge-cms/auth':
-        specifier: 0.4.0
-        version: 0.4.0
+        specifier: 0.13.3
+        version: 0.13.3
       '@forge-cms/cloudflare':
-        specifier: 0.4.0
-        version: 0.4.0
+        specifier: 0.13.3
+        version: 0.13.3
       '@forge-cms/core':
-        specifier: 0.4.0
-        version: 0.4.0
+        specifier: 0.13.3
+        version: 0.13.3
       '@forge-cms/db':
-        specifier: 0.4.0
-        version: 0.4.0
+        specifier: 0.13.3
+        version: 0.13.3
       '@forge-cms/runtime':
-        specifier: 0.4.0
-        version: 0.4.0
+        specifier: 0.13.3
+        version: 0.13.3
       '@forge-cms/storage':
-        specifier: 0.4.0
-        version: 0.4.0
+        specifier: 0.13.3
+        version: 0.13.3
       '@modelcontextprotocol/core':
         specifier: ^2.0.0
         version: 2.0.0
@@ -62,8 +68,8 @@ importers:
         specifier: ^4.1.4
         version: 4.3.3(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.101.0)(terser@5.50.0))
       angular-movement:
-        specifier: ^0.8.0
-        version: 0.8.0(@angular/common@22.1.3(@angular/core@22.1.3(@angular/compiler@22.1.3)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.1.3(@angular/compiler@22.1.3)(rxjs@7.8.2))
+        specifier: ^1.2.0
+        version: 1.2.0(@angular/common@22.1.3(@angular/core@22.1.3(@angular/compiler@22.1.3)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.1.3(@angular/compiler@22.1.3)(rxjs@7.8.2))
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -113,9 +119,12 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
+      '@agentyx/cli':
+        specifier: 0.14.0
+        version: 0.14.0
       '@analogjs/platform':
         specifier: ^2.7.0
-        version: 2.7.0(@angular/build@22.1.5(d6cde8b7a1b7c0819ea1b289b4ef5f37))(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(@libsql/client@0.17.4)(@parcel/watcher@2.6.0)(drizzle-orm@0.45.2(@libsql/client@0.17.4))(marked-gfm-heading-id@4.1.4(marked@15.0.12))(marked-highlight@2.2.4(marked@15.0.12))(marked-mangle@1.1.13(marked@15.0.12))(marked@15.0.12)(prismjs@1.30.0)(rolldown@1.2.5)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.101.0)(terser@5.50.0))
+        version: 2.7.0(@angular/build@22.1.5(d6cde8b7a1b7c0819ea1b289b4ef5f37))(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(@libsql/client@0.17.3)(@parcel/watcher@2.6.0)(drizzle-orm@0.45.2(@libsql/client@0.17.3))(marked-gfm-heading-id@4.1.4(marked@15.0.12))(marked-highlight@2.2.4(marked@15.0.12))(marked-mangle@1.1.13(marked@15.0.12))(marked@15.0.12)(prismjs@1.30.0)(rolldown@1.2.5)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.101.0)(terser@5.50.0))
       '@analogjs/vite-plugin-angular':
         specifier: ^2.7.0
         version: 2.7.0(@angular/build@22.1.5(d6cde8b7a1b7c0819ea1b289b4ef5f37))(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.101.0)(terser@5.50.0))
@@ -137,6 +146,9 @@ importers:
       '@eslint/js':
         specifier: ^9.39.2
         version: 9.39.5
+      '@etyma/cli':
+        specifier: 1.0.0
+        version: 1.0.0(@angular/compiler@22.1.3)
       '@floating-ui/dom':
         specifier: ^1.7.4
         version: 1.8.0
@@ -190,6 +202,28 @@ importers:
         version: 4.125.0
 
 packages:
+  '@agentyx/adapters@0.14.0':
+    resolution:
+      {
+        integrity: sha512-D27vlmJLgQMvG+i207d8HLROf6BqEdF0PpT4hNuAfz7dagZmnd9vK9FFREtIXaHRl/S698cxAIGRJdtIegtbWA==,
+      }
+    engines: { node: '>=22' }
+
+  '@agentyx/cli@0.14.0':
+    resolution:
+      {
+        integrity: sha512-USWNLU36cIpZ8SEc2z4fd2cSVnTrwiaVQ6bvmMJj+hcoBzMeC3GaZgksa6Xzwu258vDPaWMhXC/SNhipJrNbPw==,
+      }
+    engines: { node: '>=22' }
+    hasBin: true
+
+  '@agentyx/core@0.14.0':
+    resolution:
+      {
+        integrity: sha512-Fso9Ya102u9wVayj4pNeyU8LKggWw82H+thak+loFmr80R2/MXWRo/xsRksHvN08ETdWyt49Y3XAh7Q0cJOxLw==,
+      }
+    engines: { node: '>=22' }
+
   '@ampproject/remapping@2.3.0':
     resolution:
       {
@@ -795,6 +829,20 @@ packages:
         integrity: sha512-eY+Yn3dCqTGmyiq2QRU66lA5FL8lqqqvecHt0fF3uHONIa7ToYsaCiWV8lOKqAs0Rb2SjixiKFROngnulPtt2g==,
       }
     engines: { node: ^22.18.0 || >=24.11.0 }
+
+  '@clack/core@1.5.1':
+    resolution:
+      {
+        integrity: sha512-iHTrHA8MtVuLl2TfZySmcKv1qO2PoyC9Z7pfSDozEuV5vtY3/wcOPKJXlqJ5Oq2Cx5DDGQGAMVx6HZfRRoVEbQ==,
+      }
+    engines: { node: '>= 20.12.0' }
+
+  '@clack/prompts@1.8.1':
+    resolution:
+      {
+        integrity: sha512-dlT1m5e/0yUL0kRNcQn7yGLVThkgbB0Ga/1AmfDDC/8ik6AIiSf2QLQO2zPYvefsHP0aFgxO93cVLCCfDp7kzQ==,
+      }
+    engines: { node: '>= 20.12.0' }
 
   '@cloudflare/kv-asset-handler@0.4.2':
     resolution:
@@ -1677,6 +1725,49 @@ packages:
       }
     engines: { node: ^18.18.0 || ^20.9.0 || >=21.1.0 }
 
+  '@etyma/angular@1.0.0':
+    resolution:
+      {
+        integrity: sha512-H3eobNzrEfgkPMKfjR2MZBh2SX9KWoluIS/i8AT8CDZN9uFmRkYdJk5ubQYxbglB2RNwJpvao2u9gKLHSkhkew==,
+      }
+    engines: { node: '>=22.22.0' }
+    peerDependencies:
+      '@angular/common': ^21.0.0 || ^22.0.0
+      '@angular/core': ^21.0.0 || ^22.0.0
+
+  '@etyma/cli@1.0.0':
+    resolution:
+      {
+        integrity: sha512-5MJtmEfUpmxVJ4D/qzxbGgGGRL/DLknLElPXqzUYiJ/h9bq9iXgLrEDxa2tV4KhZGNgoyyQhs4cH4WGlwboxgA==,
+      }
+    engines: { node: '>=22.22.0' }
+    hasBin: true
+
+  '@etyma/core@1.0.0':
+    resolution:
+      {
+        integrity: sha512-+S3jdc4FMxoKW8dHwRT1xzMOPd+sXKPB3SswNsu+KPZ+0wxpPLzzDTGuclIO9MTKmQyDZErFW1BEOZco1r5j8g==,
+      }
+    engines: { node: '>=22.22.0' }
+
+  '@etyma/tooling@1.0.0':
+    resolution:
+      {
+        integrity: sha512-WPLrPgpATXfe3BPnCYSarroXCQcg0ExcVkLse9BiRmeuSv2tgksO+sl3kXvWGf+JiRNl4zugtdPm6jf32CwaxQ==,
+      }
+    engines: { node: '>=22.22.0' }
+    peerDependencies:
+      '@angular/compiler': ^21.0.0 || ^22.0.0
+      '@astrojs/compiler': ^4.0.0
+      '@astrojs/compiler-rs': ^0.5.0
+    peerDependenciesMeta:
+      '@angular/compiler':
+        optional: true
+      '@astrojs/compiler':
+        optional: true
+      '@astrojs/compiler-rs':
+        optional: true
+
   '@floating-ui/core@1.8.0':
     resolution:
       {
@@ -1695,46 +1786,46 @@ packages:
         integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==,
       }
 
-  '@forge-cms/api@0.4.0':
+  '@forge-cms/api@0.13.3':
     resolution:
       {
-        integrity: sha512-oFXHHxPB7U17ZmUt0XlyMyI5r6oeySx0MHRm1+L81gs/oBk+8EcsNrqJnBN1CzprLGwWoIlNxwXIkhn3TqHncw==,
+        integrity: sha512-QcLMkxBHzhmcTBj3YW4CaSrLbrE70Op3vtAF1LYdW7CFlDIQ4mbYLPkkAtyMyU9PPnpQDAtxd9BWDmNznQtM7A==,
       }
 
-  '@forge-cms/auth@0.4.0':
+  '@forge-cms/auth@0.13.3':
     resolution:
       {
-        integrity: sha512-CzGP3wGs7G5qYbsZcSznb/HADkW5aHSSHaHwkmIhA/vPCv9zcjHXo2EesTrhiG8NMLOBjidnEwMRSefJ8NmJyQ==,
+        integrity: sha512-6eEfO40bxdKMonMAgE8WZrC2Q58pNdBRGNqtxIWppg/tEWtEmgmsP6spnbJoPUvukpi6cRhUeOX+Z/XPVR8SzQ==,
       }
 
-  '@forge-cms/cloudflare@0.4.0':
+  '@forge-cms/cloudflare@0.13.3':
     resolution:
       {
-        integrity: sha512-gyTHN5AGaej2Rqq2YWxNrDu/5zQE/AzzZfnFxzBAf5r+9YUfDu6CuVhMf573VmYF/TqqaVg/r9BuAGrXjC4/eQ==,
+        integrity: sha512-eLHifhq9KyV8/1f39vxTk5T5M82FO9gOXZHKmWo/ZUep7FCnsNrFrOlPUu91Si0cJMOOc2uwb8Sh+MBLHELjHQ==,
       }
 
-  '@forge-cms/core@0.4.0':
+  '@forge-cms/core@0.13.3':
     resolution:
       {
-        integrity: sha512-oVj1pPNGnmoHiV2GDzmqyh52nwwTmdJzZQIRqhbgQMm7eZqbprp3DI0FtLuFUe5brg9KcdumoTeouMqFE8z6XQ==,
+        integrity: sha512-3L2uoL7MPqZwwRmeuBN1aT99e+JDsGFtuzi0zlIJ/uuCekB0wRcz4x2ekKdlIWcmW5ufhP8kUH1uwBpZtHd1iQ==,
       }
 
-  '@forge-cms/db@0.4.0':
+  '@forge-cms/db@0.13.3':
     resolution:
       {
-        integrity: sha512-DY7QT6Vy8+LU9z2A6xzze5Ii8UMAafLOQGPYD4/IkOS6Fp75DlLJqwDZ0pcz0EFFGwjghWGVd5JZU7Ll6hJsOQ==,
+        integrity: sha512-sF44TjhwTWd1CDhVJuRmgkPLNkpXS89SsXtVxtQHxwuVA0F5X3sUsIcqnJActyPip4/ZGU9xN67FMuaZFAIF9g==,
       }
 
-  '@forge-cms/runtime@0.4.0':
+  '@forge-cms/runtime@0.13.3':
     resolution:
       {
-        integrity: sha512-iPu3yWpQS1M5Z0GnKLEO7igjAqQaHsV61tVBeXh/XFSQcqVoB5N5E4+dhkeqzcoElRVNBizYRs3Ijqkk7d+FuA==,
+        integrity: sha512-pt0kVCMHPdRxu7qeh7/tG62z9U05biAHqq6k+FnLKtvSClxp1YJQH+RAzRoSqOTx9LuXe4SVEDWpu42ISNWB9A==,
       }
 
-  '@forge-cms/storage@0.4.0':
+  '@forge-cms/storage@0.13.3':
     resolution:
       {
-        integrity: sha512-g45kllPqBcvZwZm74UULzx75Er9j3HXseMS/8J06lw2dcS3sLcb4YACo7LX5MNAY8wvgtTybI0ixOsRe47UeVA==,
+        integrity: sha512-WjQ+3irZjzqFvheH9OEqWz95lI74v0LU9Dta4uHT1jT24S7r0Len4v7oGhhrh47Aa4dCIOqV+T6vBnOTxPUeEg==,
       }
 
   '@harperfast/extended-iterable@1.0.3':
@@ -1786,6 +1877,12 @@ packages:
         integrity: sha512-bV0Tgo9K4hfPCek+aMAn81RppFKv2ySDQeMoSZuvTASywNTnVJCArCZE2FWqpvIatKu7VMRLWlR1EazvVhDyhQ==,
       }
     engines: { node: '>=18.18' }
+
+  '@iarna/toml@2.2.5':
+    resolution:
+      {
+        integrity: sha512-trnsAYxU3xnS1gPHPyU961coFyLkh4gAD/0zQ5mymY4yOZ+CYvsPqUbOFSw0aDM4y0tV7tiFxL/1XfXPNC6IPg==,
+      }
 
   '@img/colour@1.1.0':
     resolution:
@@ -2299,10 +2396,10 @@ packages:
         integrity: sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ==,
       }
 
-  '@libsql/client@0.17.4':
+  '@libsql/client@0.17.3':
     resolution:
       {
-        integrity: sha512-lYayFWasDV78A+TjlEhr6ubb3odBV6OHjb+wdp8VQcyWWAEIjuwbCHaraEUS4m4yWoo0BvZo96It4VdzZRmRWw==,
+        integrity: sha512-HXk9wiAoJbKFbyBH4O+aEhN6ir5ERXuXvwE5OD2eR4/5RUa3Pw/8L9zrnVdU+iNJitRvisPWaIwmhkO3bH7giA==,
       }
 
   '@libsql/core@0.17.4':
@@ -4660,10 +4757,10 @@ packages:
       typescript: '*'
       typescript-eslint: ^8.0.0
 
-  angular-movement@0.8.0:
+  angular-movement@1.2.0:
     resolution:
       {
-        integrity: sha512-32WjXoJ7PkFjC2cqp8cOJBjPYwBU+p4onRH6uiBpp7TMXg2YSq/ytUelkoWmIA8d+4V7lf6LLo16lOQVtdUBBA==,
+        integrity: sha512-7cBnPMlkY61vGZXHdEpWRcBsS0p3pdu9WqxZ7kd8GaBDzbLTF4WMODa1pJTK4ifuY0Q7uO5YyDUhswcbn2gDJA==,
       }
     peerDependencies:
       '@angular/common': ^21.2.0 || ^22.0.0
@@ -5143,6 +5240,13 @@ packages:
         integrity: sha512-FQN4MRfuJeHf7cBbBMJFXhKSDq+2kAArBlmRBvcvFE5BB1HZKXtSFASDhdlz9zOYwxh8lDdnvmMOe/+5cdoEdg==,
       }
     engines: { node: '>= 0.8' }
+
+  commander@14.0.3:
+    resolution:
+      {
+        integrity: sha512-H+y0Jo/T1RZ9qPP4Eh1pkcQcLRglraJaSLoyOtHxu6AapkjWVCy2Sit1QQ4x3Dng8qDlSsZEet7g5Pq06MvTgw==,
+      }
+    engines: { node: '>=20' }
 
   commander@2.20.3:
     resolution:
@@ -7214,6 +7318,13 @@ packages:
       }
     engines: { node: '>= 8' }
 
+  messageformat@4.0.0:
+    resolution:
+      {
+        integrity: sha512-XKmJ/ffTWToWOlHJzt85ZChQgVGC0LHzNWuNK8zuYpNySsB0nIEmytOdSAOW9ETKtkajAUJf520m5gFHHnrTYg==,
+      }
+    engines: { node: ^20.19 || ^22.12 || >=24 }
+
   micromatch@4.0.8:
     resolution:
       {
@@ -8366,6 +8477,12 @@ packages:
       }
     engines: { node: '>=14' }
 
+  sisteransi@1.0.5:
+    resolution:
+      {
+        integrity: sha512-bLGGlR1QxBcynn2d5YmDX4MGjlZvy2MRBDRNHLJ8VI6l6+9FUiyTFNJ0IveOSP0bcXgVDPRcfGqA0pjaqUpfVg==,
+      }
+
   slash@5.1.0:
     resolution:
       {
@@ -8745,6 +8862,14 @@ packages:
     peerDependencies:
       eslint: ^8.57.0 || ^9.0.0 || ^10.0.0
       typescript: '>=4.8.4 <6.1.0'
+
+  typescript@5.9.3:
+    resolution:
+      {
+        integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==,
+      }
+    engines: { node: '>=14.17' }
+    hasBin: true
 
   typescript@6.0.3:
     resolution:
@@ -9463,7 +9588,30 @@ packages:
         integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==,
       }
 
+  zod@4.6.7:
+    resolution:
+      {
+        integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==,
+      }
+
 snapshots:
+  '@agentyx/adapters@0.14.0':
+    dependencies:
+      '@agentyx/core': 0.14.0
+      '@iarna/toml': 2.2.5
+
+  '@agentyx/cli@0.14.0':
+    dependencies:
+      '@agentyx/adapters': 0.14.0
+      '@agentyx/core': 0.14.0
+      '@clack/prompts': 1.8.1
+      commander: 14.0.3
+      zod: 4.6.7
+
+  '@agentyx/core@0.14.0':
+    dependencies:
+      zod: 4.6.7
+
   '@ampproject/remapping@2.3.0':
     dependencies:
       '@jridgewell/gen-mapping': 0.3.13
@@ -9484,14 +9632,14 @@ snapshots:
       rxjs: 7.8.2
       tslib: 2.8.1
 
-  '@analogjs/platform@2.7.0(@angular/build@22.1.5(d6cde8b7a1b7c0819ea1b289b4ef5f37))(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(@libsql/client@0.17.4)(@parcel/watcher@2.6.0)(drizzle-orm@0.45.2(@libsql/client@0.17.4))(marked-gfm-heading-id@4.1.4(marked@15.0.12))(marked-highlight@2.2.4(marked@15.0.12))(marked-mangle@1.1.13(marked@15.0.12))(marked@15.0.12)(prismjs@1.30.0)(rolldown@1.2.5)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.101.0)(terser@5.50.0))':
+  '@analogjs/platform@2.7.0(@angular/build@22.1.5(d6cde8b7a1b7c0819ea1b289b4ef5f37))(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(@libsql/client@0.17.3)(@parcel/watcher@2.6.0)(drizzle-orm@0.45.2(@libsql/client@0.17.3))(marked-gfm-heading-id@4.1.4(marked@15.0.12))(marked-highlight@2.2.4(marked@15.0.12))(marked-mangle@1.1.13(marked@15.0.12))(marked@15.0.12)(prismjs@1.30.0)(rolldown@1.2.5)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.101.0)(terser@5.50.0))':
     dependencies:
       '@analogjs/vite-plugin-angular': 2.7.0(@angular/build@22.1.5(d6cde8b7a1b7c0819ea1b289b4ef5f37))(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.101.0)(terser@5.50.0))
-      '@analogjs/vite-plugin-nitro': 2.7.0(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(@libsql/client@0.17.4)(@parcel/watcher@2.6.0)(drizzle-orm@0.45.2(@libsql/client@0.17.4))(rolldown@1.2.5)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.101.0)(terser@5.50.0))
+      '@analogjs/vite-plugin-nitro': 2.7.0(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(@libsql/client@0.17.3)(@parcel/watcher@2.6.0)(drizzle-orm@0.45.2(@libsql/client@0.17.3))(rolldown@1.2.5)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.101.0)(terser@5.50.0))
       marked: 15.0.12
       marked-gfm-heading-id: 4.1.4(marked@15.0.12)
       marked-mangle: 1.1.13(marked@15.0.12)
-      nitropack: 2.13.4(@libsql/client@0.17.4)(@parcel/watcher@2.6.0)(drizzle-orm@0.45.2(@libsql/client@0.17.4))(oxc-parser@0.121.0(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3))(rolldown@1.2.5)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.101.0)(terser@5.50.0))
+      nitropack: 2.13.4(@libsql/client@0.17.3)(@parcel/watcher@2.6.0)(drizzle-orm@0.45.2(@libsql/client@0.17.3))(oxc-parser@0.121.0(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3))(rolldown@1.2.5)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.101.0)(terser@5.50.0))
       oxc-parser: 0.121.0(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)
       vite: 8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.101.0)(terser@5.50.0)
       vitefu: 1.1.3(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.101.0)(terser@5.50.0))
@@ -9561,12 +9709,12 @@ snapshots:
       - '@emnapi/core'
       - '@emnapi/runtime'
 
-  '@analogjs/vite-plugin-nitro@2.7.0(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(@libsql/client@0.17.4)(@parcel/watcher@2.6.0)(drizzle-orm@0.45.2(@libsql/client@0.17.4))(rolldown@1.2.5)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.101.0)(terser@5.50.0))':
+  '@analogjs/vite-plugin-nitro@2.7.0(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(@libsql/client@0.17.3)(@parcel/watcher@2.6.0)(drizzle-orm@0.45.2(@libsql/client@0.17.3))(rolldown@1.2.5)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.101.0)(terser@5.50.0))':
     dependencies:
       defu: 6.1.7
       esbuild: 0.27.7
       magic-string: 0.30.21
-      nitropack: 2.13.4(@libsql/client@0.17.4)(@parcel/watcher@2.6.0)(drizzle-orm@0.45.2(@libsql/client@0.17.4))(oxc-parser@0.121.0(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3))(rolldown@1.2.5)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.101.0)(terser@5.50.0))
+      nitropack: 2.13.4(@libsql/client@0.17.3)(@parcel/watcher@2.6.0)(drizzle-orm@0.45.2(@libsql/client@0.17.3))(oxc-parser@0.121.0(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3))(rolldown@1.2.5)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.101.0)(terser@5.50.0))
       oxc-parser: 0.121.0(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)
       radix3: 1.1.2
       xmlbuilder2: 4.0.3
@@ -10001,6 +10149,18 @@ snapshots:
       '@babel/helper-string-parser': 8.0.0
       '@babel/helper-validator-identifier': 8.0.4
 
+  '@clack/core@1.5.1':
+    dependencies:
+      fast-wrap-ansi: 0.2.2
+      sisteransi: 1.0.5
+
+  '@clack/prompts@1.8.1':
+    dependencies:
+      '@clack/core': 1.5.1
+      fast-string-width: 3.0.2
+      fast-wrap-ansi: 0.2.2
+      sisteransi: 1.0.5
+
   '@cloudflare/kv-asset-handler@0.4.2': {}
 
   '@cloudflare/kv-asset-handler@0.5.0': {}
@@ -10342,6 +10502,33 @@ snapshots:
       '@eslint/core': 0.17.0
       levn: 0.4.1
 
+  '@etyma/angular@1.0.0(@angular/common@22.1.3(@angular/core@22.1.3(@angular/compiler@22.1.3)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.1.3(@angular/compiler@22.1.3)(rxjs@7.8.2))':
+    dependencies:
+      '@angular/common': 22.1.3(@angular/core@22.1.3(@angular/compiler@22.1.3)(rxjs@7.8.2))(rxjs@7.8.2)
+      '@angular/core': 22.1.3(@angular/compiler@22.1.3)(rxjs@7.8.2)
+      '@etyma/core': 1.0.0
+      tslib: 2.8.1
+
+  '@etyma/cli@1.0.0(@angular/compiler@22.1.3)':
+    dependencies:
+      '@etyma/tooling': 1.0.0(@angular/compiler@22.1.3)
+    transitivePeerDependencies:
+      - '@angular/compiler'
+      - '@astrojs/compiler'
+      - '@astrojs/compiler-rs'
+
+  '@etyma/core@1.0.0':
+    dependencies:
+      messageformat: 4.0.0
+
+  '@etyma/tooling@1.0.0(@angular/compiler@22.1.3)':
+    dependencies:
+      '@etyma/core': 1.0.0
+      messageformat: 4.0.0
+      typescript: 5.9.3
+    optionalDependencies:
+      '@angular/compiler': 22.1.3
+
   '@floating-ui/core@1.8.0':
     dependencies:
       '@floating-ui/utils': 0.2.12
@@ -10353,14 +10540,14 @@ snapshots:
 
   '@floating-ui/utils@0.2.12': {}
 
-  '@forge-cms/api@0.4.0':
+  '@forge-cms/api@0.13.3':
     dependencies:
-      '@forge-cms/core': 0.4.0
+      '@forge-cms/core': 0.13.3
 
-  '@forge-cms/auth@0.4.0':
+  '@forge-cms/auth@0.13.3':
     dependencies:
-      '@forge-cms/core': 0.4.0
-      '@forge-cms/db': 0.4.0
+      '@forge-cms/core': 0.13.3
+      '@forge-cms/db': 0.13.3
     transitivePeerDependencies:
       - '@aws-sdk/client-rds-data'
       - '@cloudflare/workers-types'
@@ -10393,11 +10580,11 @@ snapshots:
       - sqlite3
       - utf-8-validate
 
-  '@forge-cms/cloudflare@0.4.0':
+  '@forge-cms/cloudflare@0.13.3':
     dependencies:
-      '@forge-cms/core': 0.4.0
-      '@forge-cms/db': 0.4.0
-      '@forge-cms/storage': 0.4.0
+      '@forge-cms/core': 0.13.3
+      '@forge-cms/db': 0.13.3
+      '@forge-cms/storage': 0.13.3
     transitivePeerDependencies:
       - '@aws-sdk/client-rds-data'
       - '@cloudflare/workers-types'
@@ -10430,13 +10617,13 @@ snapshots:
       - sqlite3
       - utf-8-validate
 
-  '@forge-cms/core@0.4.0': {}
+  '@forge-cms/core@0.13.3': {}
 
-  '@forge-cms/db@0.4.0':
+  '@forge-cms/db@0.13.3':
     dependencies:
-      '@forge-cms/core': 0.4.0
-      '@libsql/client': 0.17.4
-      drizzle-orm: 0.45.2(@libsql/client@0.17.4)
+      '@forge-cms/core': 0.13.3
+      '@libsql/client': 0.17.3
+      drizzle-orm: 0.45.2(@libsql/client@0.17.3)
     transitivePeerDependencies:
       - '@aws-sdk/client-rds-data'
       - '@cloudflare/workers-types'
@@ -10469,13 +10656,13 @@ snapshots:
       - sqlite3
       - utf-8-validate
 
-  '@forge-cms/runtime@0.4.0':
+  '@forge-cms/runtime@0.13.3':
     dependencies:
-      '@forge-cms/api': 0.4.0
-      '@forge-cms/auth': 0.4.0
-      '@forge-cms/core': 0.4.0
-      '@forge-cms/db': 0.4.0
-      '@forge-cms/storage': 0.4.0
+      '@forge-cms/api': 0.13.3
+      '@forge-cms/auth': 0.13.3
+      '@forge-cms/core': 0.13.3
+      '@forge-cms/db': 0.13.3
+      '@forge-cms/storage': 0.13.3
     transitivePeerDependencies:
       - '@aws-sdk/client-rds-data'
       - '@cloudflare/workers-types'
@@ -10508,7 +10695,7 @@ snapshots:
       - sqlite3
       - utf-8-validate
 
-  '@forge-cms/storage@0.4.0': {}
+  '@forge-cms/storage@0.13.3': {}
 
   '@harperfast/extended-iterable@1.0.3':
     optional: true
@@ -10532,6 +10719,8 @@ snapshots:
   '@humanwhocodes/module-importer@1.0.1': {}
 
   '@humanwhocodes/retry@0.4.3': {}
+
+  '@iarna/toml@2.2.5': {}
 
   '@img/colour@1.1.0': {}
 
@@ -10821,7 +11010,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@libsql/client@0.17.4':
+  '@libsql/client@0.17.3':
     dependencies:
       '@libsql/core': 0.17.4
       '@libsql/hrana-client': 0.10.0
@@ -12003,7 +12192,7 @@ snapshots:
       - chokidar
       - supports-color
 
-  angular-movement@0.8.0(@angular/common@22.1.3(@angular/core@22.1.3(@angular/compiler@22.1.3)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.1.3(@angular/compiler@22.1.3)(rxjs@7.8.2)):
+  angular-movement@1.2.0(@angular/common@22.1.3(@angular/core@22.1.3(@angular/compiler@22.1.3)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@22.1.3(@angular/compiler@22.1.3)(rxjs@7.8.2)):
     dependencies:
       '@angular/common': 22.1.3(@angular/core@22.1.3(@angular/compiler@22.1.3)(rxjs@7.8.2))(rxjs@7.8.2)
       '@angular/core': 22.1.3(@angular/compiler@22.1.3)(rxjs@7.8.2)
@@ -12280,6 +12469,8 @@ snapshots:
     dependencies:
       delayed-stream: 1.0.0
 
+  commander@14.0.3: {}
+
   commander@2.20.3: {}
 
   commondir@1.0.1: {}
@@ -12372,10 +12563,10 @@ snapshots:
       whatwg-mimetype: 3.0.0
       whatwg-url: 12.0.1
 
-  db0@0.3.4(@libsql/client@0.17.4)(drizzle-orm@0.45.2(@libsql/client@0.17.4)):
+  db0@0.3.4(@libsql/client@0.17.3)(drizzle-orm@0.45.2(@libsql/client@0.17.3)):
     optionalDependencies:
-      '@libsql/client': 0.17.4
-      drizzle-orm: 0.45.2(@libsql/client@0.17.4)
+      '@libsql/client': 0.17.3
+      drizzle-orm: 0.45.2(@libsql/client@0.17.3)
 
   debug@4.4.3:
     dependencies:
@@ -12442,9 +12633,9 @@ snapshots:
 
   dotenv@17.4.2: {}
 
-  drizzle-orm@0.45.2(@libsql/client@0.17.4):
+  drizzle-orm@0.45.2(@libsql/client@0.17.3):
     optionalDependencies:
-      '@libsql/client': 0.17.4
+      '@libsql/client': 0.17.3
 
   dunder-proto@1.0.1:
     dependencies:
@@ -13440,6 +13631,8 @@ snapshots:
 
   merge2@1.4.1: {}
 
+  messageformat@4.0.0: {}
+
   micromatch@4.0.8:
     dependencies:
       braces: 3.0.3
@@ -13546,7 +13739,7 @@ snapshots:
     transitivePeerDependencies:
       - typescript
 
-  nitropack@2.13.4(@libsql/client@0.17.4)(@parcel/watcher@2.6.0)(drizzle-orm@0.45.2(@libsql/client@0.17.4))(oxc-parser@0.121.0(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3))(rolldown@1.2.5)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.101.0)(terser@5.50.0)):
+  nitropack@2.13.4(@libsql/client@0.17.3)(@parcel/watcher@2.6.0)(drizzle-orm@0.45.2(@libsql/client@0.17.3))(oxc-parser@0.121.0(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3))(rolldown@1.2.5)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.101.0)(terser@5.50.0)):
     dependencies:
       '@cloudflare/kv-asset-handler': 0.4.2
       '@rollup/plugin-alias': 6.0.0(rollup@4.63.0)
@@ -13567,7 +13760,7 @@ snapshots:
       cookie-es: 2.0.1
       croner: 10.0.1
       crossws: 0.3.5
-      db0: 0.3.4(@libsql/client@0.17.4)(drizzle-orm@0.45.2(@libsql/client@0.17.4))
+      db0: 0.3.4(@libsql/client@0.17.3)(drizzle-orm@0.45.2(@libsql/client@0.17.3))
       defu: 6.1.7
       destr: 2.0.5
       dot-prop: 10.2.0
@@ -13613,7 +13806,7 @@ snapshots:
       unenv: 2.0.0-rc.24
       unimport: 6.4.0(esbuild@0.28.2)(oxc-parser@0.121.0(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3))(rolldown@1.2.5)(rollup@4.63.0)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.101.0)(terser@5.50.0))
       unplugin-utils: 0.3.2
-      unstorage: 1.17.5(db0@0.3.4(@libsql/client@0.17.4)(drizzle-orm@0.45.2(@libsql/client@0.17.4)))(ioredis@5.11.1)
+      unstorage: 1.17.5(db0@0.3.4(@libsql/client@0.17.3)(drizzle-orm@0.45.2(@libsql/client@0.17.3)))(ioredis@5.11.1)
       untyped: 2.0.0
       unwasm: 0.5.3
       youch: 4.1.1
@@ -14310,6 +14503,8 @@ snapshots:
 
   signal-exit@4.1.0: {}
 
+  sisteransi@1.0.5: {}
+
   slash@5.1.0: {}
 
   slice-ansi@9.0.0:
@@ -14522,6 +14717,8 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  typescript@5.9.3: {}
+
   typescript@6.0.3: {}
 
   ufo@1.6.4: {}
@@ -14603,7 +14800,7 @@ snapshots:
       rollup: 4.63.0
       vite: 8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.101.0)(terser@5.50.0)
 
-  unstorage@1.17.5(db0@0.3.4(@libsql/client@0.17.4)(drizzle-orm@0.45.2(@libsql/client@0.17.4)))(ioredis@5.11.1):
+  unstorage@1.17.5(db0@0.3.4(@libsql/client@0.17.3)(drizzle-orm@0.45.2(@libsql/client@0.17.3)))(ioredis@5.11.1):
     dependencies:
       anymatch: 3.1.3
       chokidar: 5.0.0
@@ -14614,7 +14811,7 @@ snapshots:
       ofetch: 1.5.1
       ufo: 1.6.4
     optionalDependencies:
-      db0: 0.3.4(@libsql/client@0.17.4)(drizzle-orm@0.45.2(@libsql/client@0.17.4))
+      db0: 0.3.4(@libsql/client@0.17.3)(drizzle-orm@0.45.2(@libsql/client@0.17.3))
       ioredis: 5.11.1
 
   untun@0.2.2: {}
@@ -14898,3 +15095,5 @@ snapshots:
       zod: 4.4.3
 
   zod@4.4.3: {}
+
+  zod@4.6.7: {}

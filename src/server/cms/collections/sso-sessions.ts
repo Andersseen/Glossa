@@ -13,7 +13,6 @@ export const ssoSessionsCollection = defineCollection({
     user: defineField.relation({
       collection: 'users',
       required: true,
-      onDelete: 'cascade',
     }),
     provider: defineField.text(),
     expiresAt: defineField.date({ required: true, withTime: true }),

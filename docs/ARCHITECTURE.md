@@ -153,7 +153,7 @@ Etyma is reserved for Glossa's own UI/runtime i18n. It should not become catalog
 ## Current Foundation
 
 - `src/app/ui` contains small owned UI primitives following the Volt copy-and-own direction.
-- `src/app/i18n` contains the initial catalog boundary while `@etyma/*` packages are unavailable on npm.
+- `src/app/i18n` contains the Glossa UI i18n: `en/es/uk.json` catalogs defined with `@etyma/core` (`i18n.ts`) and provided through `@etyma/angular`.
 - `src/server/routes` contains Analog API route handlers.
 - `src/server/domain` and `src/server/services` contain behavior that routes delegate to.
 - `src/server/cms` centralizes ForgeCMS 0.4/D1 integration and schema-facing definitions.

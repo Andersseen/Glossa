@@ -14,7 +14,6 @@ export const externalIdentitiesCollection = defineCollection({
     user: defineField.relation({
       collection: 'users',
       required: true,
-      onDelete: 'cascade',
     }),
     emailSnapshot: defineField.text(),
   },

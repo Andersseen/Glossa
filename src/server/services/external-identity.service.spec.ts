@@ -4,7 +4,11 @@ import { ForgeCmsRuntime } from '@forge-cms/runtime';
 import { InMemoryStorageAdapter } from '@forge-cms/storage';
 
 import type { ExternalIdentity } from '../auth/identity';
-import { collections, type GlossaCmsRuntime } from '../cms/runtime';
+import {
+  collections,
+  getPasswordAuthAdapter,
+  type GlossaCmsRuntime,
+} from '../cms/runtime';
 import {
   findIdentity,
   linkNewIdentity,
@@ -40,11 +44,13 @@ async function createGlossaUser(
   email: string,
   role: 'admin' | 'editor' | 'viewer' = 'admin',
 ) {
-  const record = await cms.create({
-    collection: 'users',
-    data: { email, name: 'Test User', role, passwordHash: 'unused' },
+  const record = await cms.adapters.database.create('users', {
+    email,
+    name: 'Test User',
+    role,
+    passwordHash: 'unused',
   });
-  return record;
+  return { ...record, id: String(record['id']) };
 }
 
 describe('resolveOrLinkUser', () => {
@@ -132,12 +138,13 @@ describe('resolveOrLinkUser', () => {
     if (!resolved)
       throw new Error('Expected the first identity to be provisioned.');
 
-    const stored = await cms.findByID({
-      collection: 'users',
-      id: resolved.id,
-    });
-
-    expect(stored['passwordHash']).toBeFalsy();
+    for (const guess of ['', 'password', 'password123', 'devauth-subject-1']) {
+      const attempt = await getPasswordAuthAdapter(cms).login(
+        'admin@example.com',
+        guess,
+      );
+      expect(attempt.ok).toBe(false);
+    }
   });
 
   it('uses the existing mapping on a later login, preserving the user role', async () => {
@@ -146,11 +153,7 @@ describe('resolveOrLinkUser', () => {
     await resolveOrLinkUser(cms, PROVIDER, identity());
 
     // Promote to viewer directly, as an admin action would.
-    await cms.update({
-      collection: 'users',
-      id: user.id,
-      data: { role: 'viewer' },
-    });
+    await cms.adapters.database.update('users', user.id, { role: 'viewer' });
 
     const resolved = await resolveOrLinkUser(cms, PROVIDER, identity());
 
@@ -183,7 +186,7 @@ describe('resolveOrLinkUser', () => {
     const user = await createGlossaUser(cms, 'admin@example.com');
     await resolveOrLinkUser(cms, PROVIDER, identity());
 
-    await cms.delete({ collection: 'users', id: user.id });
+    await cms.adapters.database.delete('users', user.id);
 
     const resolved = await resolveOrLinkUser(cms, PROVIDER, identity());
 

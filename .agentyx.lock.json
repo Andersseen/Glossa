@@ -2,6 +2,21 @@
   "version": 1,
   "entries": [
     {
+      "kind": "hook",
+      "path": ".claude/settings.json",
+      "hooks": [
+        "observe-session-end",
+        "observe-session-start",
+        "observe-tool-use",
+        "session-doctor-bootstrap"
+      ],
+      "targets": [
+        "claude"
+      ],
+      "hash": "b27a67aa219cafb226d42d09973efbf21239669a96abc32f58d2ac73203b6de3",
+      "created": true
+    },
+    {
       "kind": "skill",
       "path": ".claude/skills/angular-architecture/SKILL.md",
       "skill": "angular-architecture",
@@ -48,6 +63,15 @@
     },
     {
       "kind": "skill",
+      "path": ".claude/skills/api-documentation/SKILL.md",
+      "skill": "api-documentation",
+      "targets": [
+        "claude"
+      ],
+      "hash": "dff47f81855956f4c93b892f9671a88363df84e4cd40a11bde89ddaaac6e8e36"
+    },
+    {
+      "kind": "skill",
       "path": ".claude/skills/aria-patterns/SKILL.md",
       "skill": "aria-patterns",
       "targets": [
@@ -81,6 +105,15 @@
         "claude"
       ],
       "hash": "138eda6f5f394a4f009bcaabaa6032d536374afb50797dab13efd7b72bc6740a"
+    },
+    {
+      "kind": "skill",
+      "path": ".claude/skills/ci-pipelines/SKILL.md",
+      "skill": "ci-pipelines",
+      "targets": [
+        "claude"
+      ],
+      "hash": "9474badebf768a298f0952dc96169c16e780f460907548b4ff1d2862d834a4cb"
     },
     {
       "kind": "skill",
@@ -120,6 +153,15 @@
     },
     {
       "kind": "skill",
+      "path": ".claude/skills/containerization/SKILL.md",
+      "skill": "containerization",
+      "targets": [
+        "claude"
+      ],
+      "hash": "6961c314ef6b5f4720c49e562cf2c38cc6aafd0d8391dd71b18ad307dbba226d"
+    },
+    {
+      "kind": "skill",
       "path": ".claude/skills/context-efficient-development/SKILL.md",
       "skill": "context-efficient-development",
       "targets": [
@@ -129,12 +171,30 @@
     },
     {
       "kind": "skill",
+      "path": ".claude/skills/decision-records/SKILL.md",
+      "skill": "decision-records",
+      "targets": [
+        "claude"
+      ],
+      "hash": "07e385ae70f481ce4535994ee9f58552c163c9f0b1738765c9439ca1f1cee168"
+    },
+    {
+      "kind": "skill",
       "path": ".claude/skills/dependency-security/SKILL.md",
       "skill": "dependency-security",
       "targets": [
         "claude"
       ],
       "hash": "98e26387b89ab4777cc4e751f634dd6d03bf3fc7b147e306ece911e067dfdf92"
+    },
+    {
+      "kind": "skill",
+      "path": ".claude/skills/deployment-safety/SKILL.md",
+      "skill": "deployment-safety",
+      "targets": [
+        "claude"
+      ],
+      "hash": "6ca80c005327918caac27684f95702ffc2b8718d4513c48263c65caa7279d773"
     },
     {
       "kind": "skill",
@@ -171,6 +231,15 @@
         "claude"
       ],
       "hash": "af0d9709dc7ad838bf82507785473657fd1620466d4178da351022dee83d39f5"
+    },
+    {
+      "kind": "skill",
+      "path": ".claude/skills/infrastructure-as-code/SKILL.md",
+      "skill": "infrastructure-as-code",
+      "targets": [
+        "claude"
+      ],
+      "hash": "14ef02d1b397841fd245fafe01365f4c5a1cc7bbe43403a355306b288bb03374"
     },
     {
       "kind": "skill",
@@ -273,6 +342,15 @@
     },
     {
       "kind": "skill",
+      "path": ".claude/skills/technical-writing/SKILL.md",
+      "skill": "technical-writing",
+      "targets": [
+        "claude"
+      ],
+      "hash": "ca84bf3458cce4b591b4b3bb1bcdf6b7f573a17eb4f7c29325d74445e498e9e5"
+    },
+    {
+      "kind": "skill",
       "path": ".claude/skills/test-doubles/SKILL.md",
       "skill": "test-doubles",
       "targets": [
@@ -344,7 +422,7 @@
       "targets": [
         "claude"
       ],
-      "hash": "3d6834d148f54c5cf7c7fb464b0aaa5baf4f1f83672f75acc1a8168f56f55136",
+      "hash": "6f8bf5be0be78522a903dfc0629c7dc8f8b81e0ad978186744819522385134b9",
       "created": true
     }
   ]
