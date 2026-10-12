@@ -47,7 +47,7 @@
     "@modelcontextprotocol/core": "^2.0.0",
     "@modelcontextprotocol/server": "^2.0.0",
     "@tailwindcss/vite": "^4.1.4",
-    "angular-movement": "^0.8.0",
+    "angular-movement": "^1.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "front-matter": "^4.0.2",
@@ -66,6 +66,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@agentyx/cli": "0.14.0",
     "@analogjs/platform": "^2.7.0",
     "@analogjs/vite-plugin-angular": "^2.7.0",
     "@analogjs/vitest-angular": "^2.7.0",
