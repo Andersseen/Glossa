@@ -33,8 +33,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # format:check, lint, typecheck, test, build. The Playwright suite runs in
-      # ci.yml on this same push rather than a second time here.
+      # format:check, lint, typecheck, test, test:d1 (the real-D1 integration suite — a failure
+      # blocks the deploy job), build. The Playwright suite runs in ci.yml on this same push
+      # rather than a second time here.
       - run: pnpm check
 
   deploy:

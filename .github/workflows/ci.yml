@@ -25,6 +25,23 @@ jobs:
       - run: pnpm test
       - run: pnpm build
 
+  # Real (local, in-process) Cloudflare D1 via workerd — needs no Cloudflare credentials. See
+  # docs/TESTING.md. A failure here fails this job, and `pnpm check` runs the same suite in
+  # deploy.yml's `verify` job, which gates production deployment.
+  d1:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:d1
+
   e2e:
     runs-on: ubuntu-latest
     steps:

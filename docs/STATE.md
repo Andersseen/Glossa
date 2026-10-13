@@ -1,6 +1,6 @@
 # Current State
 
-Glossa is a single Analog.js application backed by ForgeCMS 0.4.x public npm packages.
+Glossa is a single Analog.js application backed by ForgeCMS 0.13.x public npm packages.
 
 ## Implemented
 
@@ -337,24 +337,23 @@ coverage only).
 
 ## Testing
 
-Every Vitest spec — including the translation workspace, the translation key lifecycle
-(rename/delete), catalog import, and their public-delivery/MCP/machine-API integration coverage
-— runs against Forge's `InMemoryDatabaseAdapter`, and Playwright's
-`webServer` is plain `pnpm dev` (also in-memory); there is no `wrangler`-D1-backed or
-`vitest-pool-workers` test runtime in this repository. Public delivery and MCP were
-previously verified manually against a real local D1 database (`wrangler pages dev`),
-including the full agent journey. Catalog import was **not** re-verified against a real D1
-database, and neither were the Translation Workspace, source-locale changes, project deletion, or deploy hooks (no real Cloudflare hook has been called from Glossa: Vitest stubs `fetch` and Playwright intercepts the test call) (the ordered catalog-by-catalog delete has only run against the in-memory adapter): `wrangler.jsonc` binds the one real D1 database this repository
-has (`glossa`, a production id, not a disposable/local-only one), and `wrangler pages dev`
-against it would write test projects/catalogs into shared production data; `.dev.vars` also
-has no `BOOTSTRAP_ADMIN_KEY`/`AUTH_SECRET`, and the only interactive sign-in path
-(`DEV_AUTH_ISSUER=https://auth-devflare.andersseen.dev`) is a real external identity
-provider a human would need to complete. If real-D1 verification of import is wanted, run
-`pnpm exec wrangler pages dev dist/analog/public` against a disposable D1 database (or the
-production one, deliberately, with a throwaway test project) and repeat the same manual
-journey as the prior public-delivery/MCP milestone: sign in, create a project, import a
-small catalog from the UI, then confirm it through `/i18n/:slug/:locale.json`, the machine
-API, and MCP. Building a real-D1 Vitest harness remains future infrastructure work.
+Three layers, detailed in `docs/TESTING.md`:
+
+- **Vitest unit/service specs** (`pnpm test`) run against Forge's `InMemoryDatabaseAdapter`.
+- **Real-D1 integration suite** (`pnpm test:d1`, `test/d1/`) runs the same Glossa services against
+  Forge's `D1DatabaseAdapter` on a genuine local D1 binding inside `workerd`
+  (`@cloudflare/vitest-plugin`), with state shared only through D1 (a fresh runtime per read).
+  It covers project/catalog persistence, the sequential revision contract, relational and
+  lifecycle behaviour, Forge users, project access tokens and public delivery. It needs no
+  Cloudflare credentials and cannot reach the production database. It is required by CI (`d1`
+  job in `ci.yml`) and by the production deploy gate (`pnpm check` in `deploy.yml`'s `verify`).
+- **Playwright** (`pnpm e2e`) drives `pnpm dev` (in-memory), not the Pages runtime.
+
+Not covered against real D1: catalog import, the Translation Workspace/lifecycle services, deploy
+hooks, SSO sessions, HTTP route handlers, and the `_worker.js` Pages build itself. Concurrent
+(simultaneous) writes are **not** tested — `saveCatalogWithPrecondition` is a read-check-write, not
+an atomic compare-and-swap, so two simultaneous writers holding the same revision can both
+succeed; the D1 suite only proves the sequential contract. Fixing that is the next milestone.
 
 ## Next Milestone Candidates
 

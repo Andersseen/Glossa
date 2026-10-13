@@ -294,11 +294,13 @@ still works for creating an admin without a provider.
 pnpm lint
 pnpm typecheck
 pnpm test
+pnpm test:d1
 pnpm e2e
 pnpm check
 ```
 
-`pnpm check` runs formatting, linting, type checking, unit tests, and a production build.
+`pnpm check` runs formatting, linting, type checking, unit tests, the D1 integration tests, and
+a production build. See `docs/TESTING.md`.
 
 ## Cloudflare
 
@@ -372,6 +374,7 @@ src/app        Angular UI, layout, UI primitives, i18n catalog boundary
 src/server     API routes, Glossa domain/services, ForgeCMS integration
 docs           Architecture and roadmap notes
 e2e            Playwright smoke tests
+test/d1        Real-D1 integration tests (see docs/TESTING.md)
 ```
 
 ## Scripts
@@ -381,7 +384,7 @@ e2e            Playwright smoke tests
 - `pnpm build:cf` builds with the Cloudflare Pages preset.
 - `pnpm preview` runs the built Analog server.
 - `pnpm preview:cf` previews the Pages output through Wrangler.
-- `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm e2e` run quality checks.
+- `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:d1` (real local D1), and `pnpm e2e` run quality checks.
 - `pnpm format` and `pnpm format:check` run Prettier.
 - `pnpm check` runs the local quality gate.
 
