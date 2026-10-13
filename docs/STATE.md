@@ -175,11 +175,10 @@ PROJECT_SOURCE_CATALOG_REQUIRED`. The two catalogs are **not** required to match
     but catalogs already deleted stay deleted and tokens stay revoked — no rollback; re-running
     the delete finishes it. Tokens are revoked first so a machine writer cannot re-create a
     catalog mid-deletion. `revokeAllProjectTokens` now returns the number revoked.
-  - **Delivery cache**: `PATCH` (any settings change, including the source locale) and `DELETE`
-    (also after a part-way failure) explicitly purge the project's manifest and locale URLs from
-    the Cloudflare edge cache via `purgeProjectDeliveryCache` — deleted projects stop being
-    served at once rather than after the 30s TTL. After deletion the manifest and locale URLs are
-    `404` regardless (the project no longer resolves).
+  - **Delivery cache**: none. Public `/i18n/*` responses are `Cache-Control: no-store` and every
+    request re-checks the project, so a disabled or deleted project stops being served on the
+    next request (the Cache API purge was per-data-center and removed). See
+    `docs/PUBLIC_DELIVERY.md`.
   - **Delete UI**: Settings → **Danger zone** → **Delete project** opens the existing drawer as
     an `alertdialog`, titled and described, showing factual impact
     (`GET /api/projects/:slug/deletion-impact`, admin-only, counts only — catalogs and their
@@ -211,8 +210,8 @@ PROJECT_SOURCE_CATALOG_REQUIRED`. The two catalogs are **not** required to match
     5 second `AbortController` timeout, and any 2xx counts as success. Failures are recorded as
     `http_error`/`network_error`/`timeout`; response bodies are never read or stored.
   - **Background delivery**: `scheduleProjectDeployHook` (`http/deploy-hook-http.ts`) runs through
-    `runInBackground` (`http/background.ts`). That helper was extracted from the edge cache's
-    `event.context.waitUntil` code, which now uses it too; outside Cloudflare it lets the
+    `runInBackground` (`http/background.ts`). That helper wraps
+    `event.context.waitUntil`; outside Cloudflare it lets the
     promise run to completion. A provider failure never fails, delays or rolls back the content
     change.
   - **Trigger matrix, one per logical operation** (wired at the route, never in the catalog
@@ -263,10 +262,9 @@ PROJECT_SOURCE_CATALOG_REQUIRED`. The two catalogs are **not** required to match
 - Public runtime catalog delivery: an opt-in per-project `publicDelivery` flag (default
   `false`) gates unauthenticated `GET /i18n/:slug/manifest.json` and
   `GET /i18n/:slug/:locale.json`, returning raw catalog JSON (no envelope),
-  `Access-Control-Allow-Origin: *`, `ETag`/conditional-GET, and a Cloudflare `caches.default`
-  edge cache bounded to 30 seconds — explicitly purged on a `publicDelivery`/`locales`
-  change so a disabled project stops being served immediately rather than waiting out the
-  TTL. Disabled, unknown, and not-yet-created all return an identical `404`. See
+  `Access-Control-Allow-Origin: *`, `ETag`/conditional-GET (`304` only after the project
+  availability checks pass), and `Cache-Control: no-store` with no server-side caching, so
+  disabling delivery or deleting the project takes effect on the next request. Disabled, unknown, and not-yet-created all return an identical `404`. See
   `docs/PUBLIC_DELIVERY.md`.
 - Remote MCP server at `POST/GET/DELETE /mcp` (`@modelcontextprotocol/server` v2, Streamable
   HTTP, stateless — a fresh `McpServer` per request), authenticated with the same project

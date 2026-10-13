@@ -65,19 +65,6 @@ export async function getPublicManifest(
   };
 }
 
-/** Every public delivery URL a project can currently be cached under — see `purgeEdgeCache`. */
-export function getDeliveryUrls(
-  origin: string,
-  project: { slug: string; locales: string[] },
-): string[] {
-  return [
-    buildPublicUrl(origin, project.slug, 'manifest.json'),
-    ...project.locales.map((locale) =>
-      buildPublicUrl(origin, project.slug, `${locale}.json`),
-    ),
-  ];
-}
-
 export async function getPublicCatalog(
   cms: GlossaCmsRuntime,
   projectSlug: string,

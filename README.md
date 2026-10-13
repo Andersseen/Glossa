@@ -166,15 +166,13 @@ Delivery). `admin` and `editor` can edit; `viewer` sees the same values read-onl
     very thing being fixed. Applications may need to use the same source locale configuration.
 - **Locales** can be added, and removed only when they have no catalog — removing a locale
   never deletes a catalog (`PROJECT_LOCALE_CONFLICT`).
-- Saving purges the project's cached public delivery manifest and locale URLs.
 
 Under **Danger zone**, an **admin** can **delete the project**. The confirmation shows what
 will be removed (catalogs, configured locales, active access tokens, public delivery status, and
 the deploy hook if one is configured; it is removed and never called) and
 requires typing the project's slug before **Delete permanently** enables. Deletion removes the
 project **and all of its catalogs**, revokes every access token bound to it, and stops public
-delivery at once (the manifest and locale URLs are explicitly purged from the edge cache, not
-left to expire). Users, sign-in identities, sessions and every other project are untouched.
+delivery on the next request (`/i18n/*` is `no-store` and never served from a cache). Users, sign-in identities, sessions and every other project are untouched.
 Editors, viewers and machine tokens cannot delete a project.
 
 There is no cross-row transaction in Forge/D1, and Glossa does not pretend to have one.

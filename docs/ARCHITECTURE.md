@@ -137,8 +137,8 @@ that none remain, and only then deletes the project record — the record is nev
 owned catalog remains. Forge/D1 exposes no cross-row transaction here and none is faked: a
 failure part-way throws `ProjectDeleteIncompleteError` (`PROJECT_DELETE_INCOMPLETE`), the project
 is kept, and catalogs/tokens already handled stay handled; deleting again finishes the job. The
-route (`DELETE /api/projects/:slug`, `admin` only) then purges the project's public delivery URLs
-from the edge cache — also after a part-way failure, since some catalogs may already be gone.
+route is `DELETE /api/projects/:slug` (`admin` only). Public delivery has no cache to purge: `/i18n/*`
+is `no-store` and re-checks the project on every request.
 
 **Changing a project's source locale is a metadata change only** (`updateProject`). No catalog is
 read or written; the workspace, analysis, both manifests and MCP all derive the source from the
