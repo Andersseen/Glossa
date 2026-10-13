@@ -12,6 +12,7 @@ export function getCloudflareEnv(event: H3Event): GlossaCmsEnv {
   return {
     AUTH_SECRET: process.env['AUTH_SECRET'],
     BOOTSTRAP_ADMIN_KEY: process.env['BOOTSTRAP_ADMIN_KEY'],
+    E2E_SEED_USERS: process.env['E2E_SEED_USERS'],
     DEV_AUTH_ISSUER: process.env['DEV_AUTH_ISSUER'],
     DEV_AUTH_CLIENT_ID: process.env['DEV_AUTH_CLIENT_ID'],
     DEV_AUTH_CLIENT_SECRET: process.env['DEV_AUTH_CLIENT_SECRET'],
