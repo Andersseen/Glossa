@@ -4,30 +4,21 @@ import {
   getPublicManifest,
   DeliveryDisabledError,
 } from '../../../delivery/delivery.service';
-import { getDeliveryProjectSlug } from '../../../delivery/delivery-http';
-import { readEdgeCache, writeEdgeCache } from '../../../delivery/edge-cache';
+import {
+  DELIVERY_CACHE_HEADERS,
+  getDeliveryProjectSlug,
+  sendDeliveryNotFound,
+} from '../../../delivery/delivery-http';
 import { getRuntimeForEvent } from '../../../http/project-http';
 import { ProjectNotFoundError } from '../../../services/project.service';
 
 /**
  * Public, unauthenticated manifest for a project's runtime-delivered catalogs — see
- * `docs/PUBLIC_DELIVERY.md` for the full contract. Bounded edge staleness of `EDGE_TTL_SECONDS`
- * applies equally to a fresh write becoming visible and to delivery being disabled taking effect.
+ * `docs/PUBLIC_DELIVERY.md` for the full contract. Never cached server-side or by shared caches:
+ * every request re-checks the project's current `publicDelivery` state.
  */
-const EDGE_TTL_SECONDS = 30;
-
 export default eventHandler(async (event) => {
-  const request = toWebRequest(event);
-  const cached = await readEdgeCache(request);
-
-  if (cached) {
-    await sendWebResponse(event, cached);
-    return;
-  }
-
-  const response = await buildResponse(event, request);
-  writeEdgeCache(event, request, response.clone());
-  await sendWebResponse(event, response);
+  await sendWebResponse(event, await buildResponse(event, toWebRequest(event)));
 });
 
 async function buildResponse(
@@ -47,7 +38,7 @@ async function buildResponse(
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
         'Access-Control-Allow-Origin': '*',
-        'Cache-Control': `public, max-age=0, s-maxage=${EDGE_TTL_SECONDS}, stale-while-revalidate=${EDGE_TTL_SECONDS}`,
+        ...DELIVERY_CACHE_HEADERS,
       },
     });
   } catch (error) {
@@ -55,7 +46,7 @@ async function buildResponse(
       error instanceof DeliveryDisabledError ||
       error instanceof ProjectNotFoundError
     ) {
-      return new Response(null, { status: 404 });
+      return sendDeliveryNotFound();
     }
 
     throw error;

@@ -1,20 +1,15 @@
-import {
-  eventHandler,
-  getHeader,
-  sendWebResponse,
-  toWebRequest,
-  type H3Event,
-} from 'h3';
+import { eventHandler, getHeader, sendWebResponse, type H3Event } from 'h3';
 
 import {
   getPublicCatalog,
   DeliveryDisabledError,
 } from '../../../delivery/delivery.service';
 import {
+  DELIVERY_CACHE_HEADERS,
   getDeliveryLocale,
   getDeliveryProjectSlug,
+  sendDeliveryNotFound,
 } from '../../../delivery/delivery-http';
-import { readEdgeCache, writeEdgeCache } from '../../../delivery/edge-cache';
 import { getRuntimeForEvent } from '../../../http/project-http';
 import { parseEntityTag } from '../../../http/machine-http';
 import {
@@ -23,21 +18,16 @@ import {
 } from '../../../services/catalog.service';
 import { ProjectNotFoundError } from '../../../services/project.service';
 
-/** Same bounded-staleness contract as the manifest route — see `docs/PUBLIC_DELIVERY.md`. */
-const EDGE_TTL_SECONDS = 30;
-
+/**
+ * Same contract as the manifest route — see `docs/PUBLIC_DELIVERY.md`. The project and catalog are
+ * resolved on every request; `If-None-Match` is only evaluated against a response that already
+ * passed those checks, so a disabled or deleted project is `404` even for a previously valid ETag.
+ */
 export default eventHandler(async (event) => {
-  const request = toWebRequest(event);
-  const cached = await readEdgeCache(request);
-
-  if (cached) {
-    await sendWebResponse(event, applyConditionalGet(event, cached));
-    return;
-  }
-
-  const response = await buildResponse(event);
-  writeEdgeCache(event, request, response.clone());
-  await sendWebResponse(event, applyConditionalGet(event, response));
+  await sendWebResponse(
+    event,
+    applyConditionalGet(event, await buildResponse(event)),
+  );
 });
 
 async function buildResponse(event: H3Event): Promise<Response> {
@@ -51,7 +41,7 @@ async function buildResponse(event: H3Event): Promise<Response> {
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
         'Access-Control-Allow-Origin': '*',
-        'Cache-Control': `public, max-age=0, s-maxage=${EDGE_TTL_SECONDS}, stale-while-revalidate=${EDGE_TTL_SECONDS}`,
+        ...DELIVERY_CACHE_HEADERS,
         ETag: `"${catalog.revision}"`,
       },
     });
@@ -62,14 +52,14 @@ async function buildResponse(event: H3Event): Promise<Response> {
       error instanceof CatalogNotFoundError ||
       error instanceof CatalogLocaleNotConfiguredError
     ) {
-      return new Response(null, { status: 404 });
+      return sendDeliveryNotFound();
     }
 
     throw error;
   }
 }
 
-/** Honors `If-None-Match` against the response's own `ETag`, whether freshly computed or served from the edge cache. */
+/** Honors `If-None-Match` against the response's own `ETag`, after availability checks passed. */
 function applyConditionalGet(event: H3Event, response: Response): Response {
   const etag = response.headers.get('ETag');
   const ifNoneMatch = parseEntityTag(getHeader(event, 'if-none-match'));
@@ -78,7 +68,10 @@ function applyConditionalGet(event: H3Event, response: Response): Response {
     return response;
   }
 
-  const notModified = new Response(null, { status: 304 });
+  const notModified = new Response(null, {
+    status: 304,
+    headers: DELIVERY_CACHE_HEADERS,
+  });
   notModified.headers.set('ETag', etag);
   notModified.headers.set(
     'Access-Control-Allow-Origin',

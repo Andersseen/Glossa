@@ -1,10 +1,15 @@
 import { createError, getRequestURL, type H3Event } from 'h3';
 
-import { getDeliveryUrls } from './delivery.service';
-import { purgeEdgeCache } from './edge-cache';
+/**
+ * Public delivery must be revocable: disabling `publicDelivery` or deleting a project has to stop
+ * the *next* request from being served. Cloudflare's Cache API is per-data-center and cannot be
+ * purged globally, and any shared cache honoring `s-maxage` could keep serving a revoked catalog,
+ * so every response (200, 304 and 404) is `no-store` and every request re-checks the project.
+ */
+export const DELIVERY_CACHE_HEADERS = { 'Cache-Control': 'no-store' } as const;
 
 /**
- * `/i18n/*` is Glossa's one unauthenticated, publicly-cacheable surface — deliberately not built
+ * `/i18n/*` is Glossa's one unauthenticated, public surface — deliberately not built
  * on `project-http.ts`/`catalog-http.ts` (those exist for the auth-gated human/machine routes) and
  * deliberately never distinguishing *why* something is 404 (unknown project, delivery disabled,
  * unknown locale, missing catalog all look identical from the outside — see `sendDeliveryNotFound`).
@@ -31,7 +36,7 @@ export function getDeliveryLocale(event: H3Event): string {
  * "Prefer 404 over 403 so project existence is not exposed unnecessarily").
  */
 export function sendDeliveryNotFound(): Response {
-  return new Response(null, { status: 404 });
+  return new Response(null, { status: 404, headers: DELIVERY_CACHE_HEADERS });
 }
 
 function getSegmentAfter(event: H3Event, marker: string): string {
@@ -44,16 +49,4 @@ function getSegmentAfter(event: H3Event, marker: string): string {
   }
 
   return decodeURIComponent(value);
-}
-
-/**
- * Explicitly purges a project's cached manifest and per-locale catalog responses from the edge
- * cache, so a settings change or a deletion takes effect immediately rather than after the
- * routes' own `s-maxage` bound. Best-effort and a no-op outside Cloudflare (see `purgeEdgeCache`).
- */
-export function purgeProjectDeliveryCache(
-  event: H3Event,
-  project: { slug: string; locales: string[] },
-): void {
-  purgeEdgeCache(event, getDeliveryUrls(getRequestURL(event).origin, project));
 }

@@ -1,8 +1,8 @@
 # Static Consumer Deploy Hooks
 
 A runtime consumer (Volt UI through Etyma's remote mode) fetches Glossa's
-[Public Delivery](PUBLIC_DELIVERY.md) JSON while it runs, so a translation edit is visible as soon
-as the edge cache refreshes. A **static** consumer is different. `my-blog` is Astro SSG: it reads
+[Public Delivery](PUBLIC_DELIVERY.md) JSON while it runs, so a translation edit is visible on the
+next request. A **static** consumer is different. `my-blog` is Astro SSG: it reads
 the Glossa catalogs during `astro build` and bakes them into HTML. Changing `Home` → `Inicio` in
 Glossa updates Public Delivery, but the deployed HTML stays the same until the site is **rebuilt
 and redeployed**.

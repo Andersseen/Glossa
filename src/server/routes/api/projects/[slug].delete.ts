@@ -1,16 +1,12 @@
 import { eventHandler } from 'h3';
 
-import { purgeProjectDeliveryCache } from '../../../delivery/delivery-http';
 import { requireAdminUser } from '../../../http/auth-http';
 import {
   getProjectSlug,
   getRuntimeForEvent,
   sendProjectError,
 } from '../../../http/project-http';
-import {
-  deleteProject,
-  ProjectDeleteIncompleteError,
-} from '../../../services/project.service';
+import { deleteProject } from '../../../services/project.service';
 
 /**
  * Whole-project deletion — `admin` only, stricter than the `requireWriteUser` (admin/editor) gate
@@ -24,9 +20,6 @@ export default eventHandler(async (event) => {
     const { project, deletedCatalogs, revokedTokens, removedDeployHook } =
       await deleteProject(cms, getProjectSlug(event));
 
-    // The project's public URLs must stop serving now, not when the edge TTL lapses.
-    purgeProjectDeliveryCache(event, project);
-
     return {
       deleted: true,
       project: { id: project.id, slug: project.slug, name: project.name },
@@ -35,11 +28,6 @@ export default eventHandler(async (event) => {
       removedDeployHook,
     };
   } catch (error) {
-    if (error instanceof ProjectDeleteIncompleteError) {
-      // Some catalogs may already be gone — cached copies of them must not outlive that either.
-      purgeProjectDeliveryCache(event, error.project);
-    }
-
     return sendProjectError(event, error);
   }
 });

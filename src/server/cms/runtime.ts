@@ -20,6 +20,8 @@ import { usersCollection } from './collections/users';
 export type GlossaCmsEnv = {
   AUTH_SECRET?: string;
   BOOTSTRAP_ADMIN_KEY?: string;
+  /** `true` only for the Playwright dev server; enables `POST /api/auth/test-seed`. Never set in production. */
+  E2E_SEED_USERS?: string;
   DEV_AUTH_ISSUER?: string;
   DEV_AUTH_CLIENT_ID?: string;
   DEV_AUTH_CLIENT_SECRET?: string;

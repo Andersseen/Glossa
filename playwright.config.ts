@@ -15,7 +15,7 @@ export default defineConfig({
     },
     {
       command:
-        `AUTH_SECRET=playwright-auth-secret BOOTSTRAP_ADMIN_KEY=playwright-bootstrap ` +
+        `AUTH_SECRET=playwright-auth-secret BOOTSTRAP_ADMIN_KEY=playwright-bootstrap E2E_SEED_USERS=true ` +
         `DEV_AUTH_ISSUER=${MOCK_DEV_AUTH_ISSUER} DEV_AUTH_CLIENT_ID=${DEV_AUTH_CLIENT_ID} ` +
         `DEV_AUTH_CLIENT_SECRET=${DEV_AUTH_CLIENT_SECRET} ` +
         `DEV_AUTH_REDIRECT_URI=http://127.0.0.1:5173/api/auth/sso/callback ` +

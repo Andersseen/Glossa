@@ -94,35 +94,60 @@ Every catalog response carries:
 Content-Type: application/json; charset=utf-8
 Access-Control-Allow-Origin: *
 ETag: "<catalog revision>"
-Cache-Control: public, max-age=0, s-maxage=30, stale-while-revalidate=30
+Cache-Control: no-store
 ```
 
 `Access-Control-Allow-Origin: *` is unconditional — this is a public, credential-free,
 cross-origin-by-design surface, so it never mixes with the human UI's own cookie-based CORS
-semantics. A conditional request is honored:
+semantics. `Cache-Control: no-store` is also set on `304` and `404` responses. A conditional
+request is honored, but only after the project's current state has been checked:
 
 ```bash
 curl -s -H 'If-None-Match: "<revision>"' "$GLOSSA_URL/i18n/volt-ui/en.json"
 # -> 304 Not Modified, no body
 ```
 
-## Freshness
+## Freshness and revocation
 
 There is no separate publish step — a save through the human UI, the Machine API, or MCP's
-`set_translation` is immediately the value `/i18n/*` will next compute. The only staleness
-window is the edge cache in front of it:
+`set_translation` is the value the very next `/i18n/*` request computes.
 
-- Cloudflare's `caches.default` (Cache API) fronts both routes with `s-maxage=30` — a
-  freshly-computed response is reused for at most **30 seconds** before the next request
-  recomputes it.
-- Toggling `publicDelivery` (on **or** off) or editing a project's settings (`locales`,
-  `sourceLocale`, `name` — the manifest carries all of them) purges that project's cached
-  manifest/catalog entries immediately — disabling delivery does not wait out the 30-second
-  window; it stops serving the moment the setting is saved.
-- Deleting a project returns `404` for its manifest and every locale URL at once (the project no
-  longer resolves) and explicitly purges its cached entries rather than waiting out the TTL.
-- A translation content edit (human, Machine API, or MCP) is not explicitly purged — it
-  becomes visible within that same bounded 30 seconds.
+**Nothing on the server side caches these routes.** Every request loads the project and
+catalog, so:
+
+- Disabling `publicDelivery` makes the next request for the manifest and every locale URL
+  return `404`.
+- Deleting a project does the same (the project no longer resolves).
+- A conditional request with a previously valid `If-None-Match` also gets `404` once delivery
+  is disabled or the project is gone: `304` is only produced for a project that passed the
+  availability checks and whose revision still matches. A catalog edit changes the revision, so
+  the old `ETag` stops matching and the full body is returned.
+- Unknown project, disabled project, unconfigured locale and missing catalog stay
+  indistinguishable plain `404`s.
+
+### Why there is no edge cache
+
+An earlier version put Cloudflare's Cache API (`caches.default`) in front of both routes with
+`s-maxage=30` and tried to `caches.default.delete()` entries on settings changes. The Cache API
+is local to the data center that runs the Worker, so a purge in one location does not
+invalidate copies in others, and a cached hit was returned before the project's state was
+checked. A disabled or deleted project could therefore keep serving catalogs elsewhere.
+`s-maxage` and `stale-while-revalidate` likewise let any shared cache keep serving a revoked
+catalog. Both were removed rather than papered over with a global purge.
+
+### Guarantee and limits
+
+- Once the deployed Worker serves a request after the settings change is committed, it returns
+  `404`. Requests already in flight when the change is saved can still complete with the
+  previous content, and the new behavior applies only once the deployment containing it is live
+  everywhere.
+- Glossa cannot recall copies already downloaded: browsers, third-party CDNs, build outputs
+  (e.g. a static site generated from a catalog), and other applications keep whatever they
+  fetched. `no-store` tells compliant caches not to keep copies, but it is a request, not a
+  guarantee, and nothing HTTP offers can revoke content a client already has.
+- Tradeoff: every request now reads the project and catalog from D1 instead of being absorbed
+  by the 30-second edge cache. Consumers that want to cache should do so on their side (or at
+  build time) and accept that their copy is not revocable by Glossa.
 
 ## Read-only
 

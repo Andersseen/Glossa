@@ -410,52 +410,23 @@ async function setSignedRoleCookie(
   page: Page,
   role: 'editor' | 'viewer',
 ): Promise<void> {
-  await page.context().clearCookies();
-  await page.context().addCookies([
-    {
-      name: 'forge_session',
-      value: await issueTestToken(role),
-      domain: '127.0.0.1',
-      path: '/',
-      httpOnly: true,
-      sameSite: 'Lax',
-      expires: Math.floor(Date.now() / 1000) + 60 * 60,
+  const credentials = {
+    email: `${role}@example.com`,
+    password: 'correct-password',
+  };
+  const seeded = await page.request.post('/api/auth/test-seed', {
+    headers: {
+      ...sameOriginHeaders(),
+      'x-glossa-bootstrap-key': 'playwright-bootstrap',
     },
-  ]);
-}
+    data: { ...credentials, role },
+  });
+  expect(seeded.ok()).toBe(true);
 
-async function issueTestToken(role: 'editor' | 'viewer'): Promise<string> {
-  const payloadPart = base64UrlEncode(
-    new TextEncoder().encode(
-      JSON.stringify({
-        sub: `${role}-user`,
-        email: `${role}@example.com`,
-        name: role,
-        role,
-        exp: Date.now() + 60 * 60 * 1000,
-      }),
-    ),
-  );
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode('playwright-auth-secret'),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-  const signature = await crypto.subtle.sign(
-    'HMAC',
-    key,
-    new TextEncoder().encode(payloadPart),
-  );
-
-  return `${payloadPart}.${base64UrlEncode(new Uint8Array(signature))}`;
-}
-
-function base64UrlEncode(bytes: Uint8Array): string {
-  return Buffer.from(bytes)
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
+  await page.context().clearCookies();
+  const signedIn = await page.request.post('/api/auth/signin', {
+    headers: sameOriginHeaders(),
+    data: credentials,
+  });
+  expect(signedIn.ok()).toBe(true);
 }

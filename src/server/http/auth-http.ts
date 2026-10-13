@@ -231,6 +231,50 @@ export async function bootstrapFirstAdmin(event: H3Event): Promise<Response> {
   return Response.json({ user: result.user }, { status: 201 });
 }
 
+/**
+ * Test-only: provisions an `editor`/`viewer` password user so Playwright can sign in as a real
+ * account (Forge validates sessions against the users collection, so forged cookies no longer
+ * work). Doubly gated — `E2E_SEED_USERS=true` (set only by `playwright.config.ts`) and the
+ * bootstrap key — and answers 404 when disabled so it does not exist in any real deployment.
+ */
+export async function seedTestUser(event: H3Event): Promise<Response> {
+  assertSameOriginMutation(event);
+  const env = getCloudflareEnv(event);
+
+  if (env.E2E_SEED_USERS !== 'true' || !env.BOOTSTRAP_ADMIN_KEY) {
+    return jsonError('NOT_FOUND', 'Not Found', 404);
+  }
+
+  if (getHeader(event, 'x-glossa-bootstrap-key') !== env.BOOTSTRAP_ADMIN_KEY) {
+    return jsonError('FORBIDDEN', 'Forbidden', 403);
+  }
+
+  const body = await toWebRequest(event)
+    .json()
+    .catch(() => null);
+  const email = readBodyString(body, 'email');
+  const password = readBodyString(body, 'password');
+  const role = readBodyString(body, 'role');
+
+  if (!email || !password || (role !== 'editor' && role !== 'viewer')) {
+    return jsonError(
+      'INVALID_INPUT',
+      'Email, password and role are required.',
+      400,
+    );
+  }
+
+  const auth = getPasswordAuthAdapter(await getCmsRuntime(env));
+  const result = await auth.createUser({ email, password, role });
+
+  // Idempotent: seeding the same account twice is fine.
+  if (!result.ok && result.reason !== 'email-in-use') {
+    return jsonError('INVALID_INPUT', 'User could not be created.', 400);
+  }
+
+  return Response.json({ seeded: true }, { status: 201 });
+}
+
 export function sendAuthBoundaryError(event: H3Event, error: unknown) {
   if (error instanceof CsrfError || error instanceof AccessDeniedError) {
     setResponseStatus(event, error.status);

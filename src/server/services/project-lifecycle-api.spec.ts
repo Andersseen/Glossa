@@ -131,9 +131,15 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-/** The purged URLs' paths — h3 derives the origin from the Host header, which an in-process `Request` does not carry. */
-function purgedPaths(cacheDelete: { mock: { calls: unknown[][] } }): string[] {
-  return cacheDelete.mock.calls.map(([url]) => new URL(String(url)).pathname);
+/** A Cache API stand-in; Glossa no longer uses it, so none of its methods should ever run. */
+function stubEdgeCache() {
+  const cache = {
+    match: vi.fn(async () => undefined),
+    put: vi.fn(async () => {}),
+    delete: vi.fn(async () => true),
+  };
+  vi.stubGlobal('caches', { default: cache });
+  return cache;
 }
 
 function mcpFetchFor(): FetchLike {
@@ -248,16 +254,9 @@ describe('PATCH /api/projects/:slug — settings', () => {
     );
   });
 
-  it('purges the delivery manifest and locale URLs from the edge cache after a source change', async () => {
+  it('does not touch the edge cache after a source change', async () => {
     const { slug } = await setUpProject();
-    const cacheDelete = vi.fn(async () => true);
-    vi.stubGlobal('caches', {
-      default: {
-        match: async () => undefined,
-        put: async () => {},
-        delete: cacheDelete,
-      },
-    });
+    const cache = stubEdgeCache();
 
     const response = await patch(
       slug,
@@ -266,11 +265,7 @@ describe('PATCH /api/projects/:slug — settings', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(purgedPaths(cacheDelete)).toEqual([
-      `/i18n/${slug}/manifest.json`,
-      `/i18n/${slug}/en.json`,
-      `/i18n/${slug}/es.json`,
-    ]);
+    expect(cache.delete).not.toHaveBeenCalled();
   });
 });
 
@@ -530,41 +525,22 @@ describe('DELETE /api/projects/:slug', () => {
     expect((await manifestFetch(new Request(manifestUrl))).status).toBe(404);
   });
 
-  it('explicitly purges the deleted project’s manifest and locale URLs from the edge cache', async () => {
+  it('stops serving the deleted project’s public URLs without relying on the edge cache', async () => {
     const { cms, slug } = await setUpProject();
     await saveCatalog(cms, slug, 'en', { a: 'A' });
-    const cacheDelete = vi.fn(async () => true);
-    vi.stubGlobal('caches', {
-      default: {
-        match: async () => undefined,
-        put: async () => {},
-        delete: cacheDelete,
-      },
-    });
+    const cache = stubEdgeCache();
 
     expect((await del(slug, await sessionToken('admin'))).status).toBe(200);
 
-    expect(purgedPaths(cacheDelete)).toEqual([
-      `/i18n/${slug}/manifest.json`,
-      `/i18n/${slug}/en.json`,
-      `/i18n/${slug}/es.json`,
-    ]);
-  });
-
-  it('does not purge, and deletes nothing, when the caller is not allowed to delete', async () => {
-    const { slug } = await setUpProject();
-    const cacheDelete = vi.fn(async () => true);
-    vi.stubGlobal('caches', {
-      default: {
-        match: async () => undefined,
-        put: async () => {},
-        delete: cacheDelete,
-      },
-    });
-
-    expect((await del(slug, await sessionToken('editor'))).status).toBe(403);
-
-    expect(cacheDelete).not.toHaveBeenCalled();
+    expect(cache.delete).not.toHaveBeenCalled();
+    expect(cache.match).not.toHaveBeenCalled();
+    for (const path of ['manifest', 'en', 'es']) {
+      const fetcher = path === 'manifest' ? manifestFetch : localeFetch;
+      const response = await fetcher(
+        new Request(`https://glossa.test/i18n/${slug}/${path}.json`),
+      );
+      expect(response.status).toBe(404);
+    }
   });
 
   it('makes the project’s access tokens unusable on the machine API and MCP, and the human route 404', async () => {
@@ -626,19 +602,11 @@ describe('DELETE /api/projects/:slug', () => {
     ).toEqual({ k: 'K' });
   });
 
-  it('reports a part-way failure as PROJECT_DELETE_INCOMPLETE, keeps the project, and still purges', async () => {
+  it('reports a part-way failure as PROJECT_DELETE_INCOMPLETE, and keeps the project', async () => {
     const { cms, slug } = await setUpProject();
     await saveCatalog(cms, slug, 'en', { a: 'A' });
     await saveCatalog(cms, slug, 'es', { a: 'a' });
     const admin = await sessionToken('admin');
-    const cacheDelete = vi.fn(async () => true);
-    vi.stubGlobal('caches', {
-      default: {
-        match: async () => undefined,
-        put: async () => {},
-        delete: cacheDelete,
-      },
-    });
 
     const realDelete = cms.delete.bind(cms);
     let catalogDeletes = 0;
@@ -659,6 +627,5 @@ describe('DELETE /api/projects/:slug', () => {
     expect(body.error.code).toBe('PROJECT_DELETE_INCOMPLETE');
     expect(body.error.message).not.toContain('database unavailable');
     await expect(getProjectBySlug(cms, slug)).resolves.toMatchObject({ slug });
-    expect(cacheDelete).toHaveBeenCalled();
   });
 });
