@@ -69,7 +69,7 @@
     "@agentyx/cli": "0.14.0",
     "@analogjs/platform": "^2.7.0",
     "@analogjs/vite-plugin-angular": "^2.7.0",
-    "@analogjs/vitest-angular": "^2.7.0",
+    "@analogjs/vitest-angular": "^2.8.1",
     "@angular/build": "^22.0.0",
     "@angular/cdk": "^22.0.0",
     "@angular/cli": "^22.0.0",
