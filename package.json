@@ -27,7 +27,7 @@
   },
   "private": true,
   "dependencies": {
-    "@analogjs/content": "^2.7.0",
+    "@analogjs/content": "^2.9.2",
     "@analogjs/router": "^2.7.0",
     "@angular/common": "^22.0.0",
     "@angular/compiler": "^22.0.0",
