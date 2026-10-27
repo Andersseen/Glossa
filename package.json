@@ -38,7 +38,7 @@
     "@angular/router": "^22.0.0",
     "@etyma/angular": "1.0.0",
     "@etyma/core": "1.0.0",
-    "@forge-cms/auth": "0.13.3",
+    "@forge-cms/auth": "1.0.0",
     "@forge-cms/cloudflare": "0.13.3",
     "@forge-cms/core": "0.13.3",
     "@forge-cms/db": "0.13.3",
