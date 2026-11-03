@@ -79,7 +79,7 @@
     "@floating-ui/dom": "^1.7.4",
     "@modelcontextprotocol/client": "^2.0.0",
     "@playwright/test": "^1.62.1",
-    "@testing-library/angular": "^19.4.2",
+    "@testing-library/angular": "^19.6.0",
     "@types/node": "^24.10.1",
     "angular-eslint": "^21.0.0",
     "eslint": "^9.39.2",
